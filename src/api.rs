@@ -1,3 +1,4 @@
+use reqwest::{self, StatusCode};
 use std::collections::HashMap;
 
 use crate::utils::get_string_value;
@@ -7,6 +8,21 @@ pub enum StrOrInt {
     I32V(i32),
     I64V(i64),
     I128V(i128),
+}
+
+enum ResponseResults {
+    Authorized(TokenInfo),
+    Unauthorized(UnauthorizedResponse),
+}
+
+pub struct Response {
+    pub status_code: i32,
+    pub response: ResponseResults,
+}
+
+pub struct UnauthorizedResponse {
+    pub code: i32,
+    pub message: String,
 }
 
 pub struct TokenInfo {
@@ -40,7 +56,7 @@ impl TokenInfo {
             "legacy_username",
             Some("No legacy username available"),
         );
-        // let fullname = get_string_value(dict, "fullname");
+
         let avatar = get_string_value(dict, "avatar", Some("No avatar provided"));
         let banner = get_string_value(dict, "banner", Some("No banner provided"));
         let email = get_string_value(dict, "email", None).unwrap();
@@ -98,6 +114,38 @@ Bio: {}",
             self.mfa,
             self.bio.unwrap()
         )
+    }
+}
+
+pub struct API {}
+
+impl API {
+    pub const API_URL: &'static str = "https://discord.com/api/v9";
+
+    pub async fn get_me(token: &str) {
+        // TODO: use serde and reqwest::Client
+
+        // let response = reqwest::get(format!("{}/users/@me", API::API_URL))
+            // .await
+            // .unwrap();
+        // let response_json = response.text().await;
+
+        // match response.status() {
+            // StatusCode::OK => {}
+            // StatusCode::UNAUTHORIZED => {
+                // let text = response_json.unwrap()
+                // if let Some(string) = response_json.unwrap() {
+
+                // }
+
+                // let text = match response_json {
+                //     Ok(text) => text,
+                //     Err(e) => HashMap::from([("code", "1"), ("message", "unknown error")]),
+                // };
+                // return UnauthorizedResponse {};
+            }
+            // _ => {}
+        // }
     }
 }
 
