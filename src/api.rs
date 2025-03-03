@@ -91,12 +91,12 @@ Bio: {}",
             self.username,
             self.fullname,
             self.legacy_username.unwrap(),
-            self.avatar.unwrap_or(String::from("No avatar")),
-            self.banner.unwrap_or(String::from("No banner")),
+            self.avatar.unwrap(),
+            self.banner.unwrap(),
             self.email,
-            self.phone.unwrap_or(String::from("No phone")),
+            self.phone.unwrap(),
             self.mfa,
-            self.bio.unwrap_or(String::from("No bio"))
+            self.bio.unwrap()
         )
     }
 }
