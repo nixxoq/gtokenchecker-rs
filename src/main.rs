@@ -1,3 +1,4 @@
+use api::TokenInfo;
 use utils::get_account_creation;
 
 pub mod api;
@@ -9,7 +10,14 @@ async fn main() {
 
     // use api::StrOrInt::*;
 
-    let result = api::API::get_me("token").await.unwrap();
+    let result = api::API::get_me("token").await;
 
-    result.show(true); // mask_token -> bool
+    match result {
+        Ok(token_info) => {
+            token_info.show(true); // mask_token -> bool
+        }
+        Err(err) => {
+            eprintln!("Error: {}", err.message)
+        }
+    }
 }
