@@ -1,24 +1,15 @@
-use std::collections::HashMap;
-
-use api::{StrOrInt, TokenInfo};
 use utils::get_account_creation;
 
 pub mod api;
 pub mod utils;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     get_account_creation(935942230634532884, None);
 
-    use api::StrOrInt::*;
-    let mut test_dict: HashMap<String, StrOrInt> = HashMap::new();
-    test_dict.insert("id".to_string(), I64V(12345));
-    test_dict.insert("username".to_string(), StrV("testuser".to_string()));
-    test_dict.insert("email".to_string(), StrV("test@example.com".to_string()));
-    test_dict.insert("mfa".to_string(), I32V(1));
-    test_dict.insert("fullname".to_string(), StrV("Test User".to_string()));
+    // use api::StrOrInt::*;
 
-    let result = TokenInfo::from_dict(&test_dict);
+    let result = api::API::get_me("token").await.unwrap();
 
-    result.show()
-    // println!("TokenInfo id: {}", result.username);
+    result.show(true); // mask_token -> bool
 }

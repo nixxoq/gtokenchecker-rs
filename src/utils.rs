@@ -2,7 +2,12 @@ use std::collections::HashMap;
 
 use chrono::DateTime;
 
-use crate::api::StrOrInt;
+pub enum StrOrInt {
+    StrV(String),
+    I32V(i32),
+    I64V(i64),
+    I128V(i128),
+}
 
 pub fn get_account_creation(snowflake_id: i64, format: Option<&str>) -> String {
     let user_creation = ((snowflake_id >> 22) + 1420070400000) / 1000;

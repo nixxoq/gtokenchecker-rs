@@ -1,68 +1,64 @@
 use reqwest::{self, StatusCode};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::collections::HashMap;
 
-use crate::utils::get_string_value;
+use crate::utils::{StrOrInt, get_string_value};
 
-pub enum StrOrInt {
-    StrV(String),
-    I32V(i32),
-    I64V(i64),
-    I128V(i128),
-}
-
-enum ResponseResults {
-    Authorized(TokenInfo),
-    Unauthorized(UnauthorizedResponse),
-}
-
-pub struct Response {
-    pub status_code: i32,
-    pub response: ResponseResults,
-}
-
+#[derive(Serialize, Deserialize, Debug)]
 pub struct UnauthorizedResponse {
     pub code: i32,
     pub message: String,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
 pub struct TokenInfo {
-    pub id: i128,
+    pub id: String,
     pub username: String,
+    pub global_name: String,
+    pub discriminator: String,
+    #[serde(skip)]
     pub fullname: String,
-    pub legacy_username: Option<String>,
+    #[serde(skip)]
+    pub legacy_username: String,
     pub avatar: Option<String>,
     pub banner: Option<String>,
     pub email: String,
     pub phone: Option<String>,
-    pub mfa: bool,
+    pub mfa_enabled: bool,
     pub bio: Option<String>,
-    token: String,
+    #[serde(skip)]
+    pub token: String,
 }
 
 impl TokenInfo {
     pub fn from_dict(dict: &HashMap<String, StrOrInt>) -> Self {
         let id = match dict.get("id") {
-            Some(StrOrInt::I32V(value)) => *value as i128,
-            Some(StrOrInt::I64V(value)) => *value as i128,
-            Some(StrOrInt::StrV(value)) => value.parse::<i128>().unwrap_or(0),
-            Some(StrOrInt::I128V(value)) => *value,
-            _ => 0,
+            Some(StrOrInt::I32V(value)) => value.to_string(),
+            Some(StrOrInt::I64V(value)) => value.to_string(),
+            Some(StrOrInt::I128V(value)) => value.to_string(),
+            Some(StrOrInt::StrV(value)) => value.clone(),
+            _ => String::new(),
         };
 
         let username = get_string_value(dict, "username", Some("No username provided")).unwrap();
         let fullname = username.clone() + "#0000";
+        let global_name =
+            get_string_value(dict, "global_name", Some("No global username provided")).unwrap();
+        let discriminator = get_string_value(dict, "discriminator", Some("#0000")).unwrap();
         let legacy_username = get_string_value(
             dict,
             "legacy_username",
             Some("No legacy username available"),
-        );
+        )
+        .unwrap();
 
         let avatar = get_string_value(dict, "avatar", Some("No avatar provided"));
         let banner = get_string_value(dict, "banner", Some("No banner provided"));
         let email = get_string_value(dict, "email", None).unwrap();
         let phone = get_string_value(dict, "phone", Some("No phone provided"));
 
-        let mfa = match dict.get("mfa") {
+        let mfa_enabled = match dict.get("mfa") {
             Some(StrOrInt::I32V(value)) => *value != 0,
             Some(StrOrInt::I64V(value)) => *value != 0,
             _ => false,
@@ -75,19 +71,35 @@ impl TokenInfo {
         TokenInfo {
             id,
             username,
+            global_name,
+            discriminator,
             fullname,
             legacy_username,
             avatar,
             banner,
             email,
             phone,
-            mfa,
+            mfa_enabled,
             bio,
             token,
         }
     }
 
-    pub fn show(self) {
+    pub fn show(self, mask_token: bool) {
+        let token = if mask_token {
+            let token_parts: Vec<&str> = self.token.split(".").collect();
+
+            if token_parts.len() > 2 {
+                let length = token_parts.last().unwrap().len();
+                let last_part_masked = "*".repeat(length);
+                format!("{}.{}.{}", token_parts[0], token_parts[1], last_part_masked)
+            } else {
+                self.token.clone()
+            }
+        } else {
+            self.token.clone()
+        };
+
         println!(
             "
 Token: {}
@@ -102,16 +114,16 @@ E-mail: {}
 Phone: {}
 MFA: {}
 Bio: {}",
-            self.token,
+            token,
             self.id,
             self.username,
             self.fullname,
-            self.legacy_username.unwrap(),
-            self.avatar.unwrap(),
-            self.banner.unwrap(),
+            self.legacy_username,
+            self.avatar.unwrap_or_default(),
+            self.banner.unwrap_or(String::from("No banner provided")),
             self.email,
-            self.phone.unwrap(),
-            self.mfa,
+            self.phone.unwrap_or(String::from("No phone provided")),
+            self.mfa_enabled,
             self.bio.unwrap()
         )
     }
@@ -122,30 +134,52 @@ pub struct API {}
 impl API {
     pub const API_URL: &'static str = "https://discord.com/api/v9";
 
-    pub async fn get_me(token: &str) {
+    pub async fn get_me(token: &str) -> Result<TokenInfo, UnauthorizedResponse> {
         // TODO: use serde and reqwest::Client
+        let client = reqwest::Client::builder().build().unwrap();
 
-        // let response = reqwest::get(format!("{}/users/@me", API::API_URL))
-            // .await
-            // .unwrap();
-        // let response_json = response.text().await;
+        let response = client
+            .get(format!("{}/users/@me", API::API_URL))
+            .header("Authorization", token)
+            .send()
+            .await
+            .unwrap();
 
-        // match response.status() {
-            // StatusCode::OK => {}
-            // StatusCode::UNAUTHORIZED => {
-                // let text = response_json.unwrap()
-                // if let Some(string) = response_json.unwrap() {
+        match response.status() {
+            StatusCode::OK => {
+                let text = response.text().await.unwrap();
+                let raw_json: Value = serde_json::from_str(&text).unwrap();
 
-                // }
+                println!("{}", raw_json);
 
-                // let text = match response_json {
-                //     Ok(text) => text,
-                //     Err(e) => HashMap::from([("code", "1"), ("message", "unknown error")]),
-                // };
-                // return UnauthorizedResponse {};
+                let mut token_info: TokenInfo = serde_json::from_str(&text).unwrap();
+                token_info.fullname =
+                    format!("{}#{}", token_info.username, token_info.discriminator);
+                token_info.token = String::from(token);
+
+                // workaround to parse legacy_username from older accounts if exists without panicing rust
+                if let Some(legacy_username) =
+                    raw_json.get("legacy_username").and_then(Value::as_str)
+                {
+                    token_info.legacy_username = legacy_username.to_string();
+                } else {
+                    token_info.legacy_username = String::from("No legacy username provided");
+                }
+
+                Ok(token_info)
             }
-            // _ => {}
-        // }
+            StatusCode::UNAUTHORIZED => {
+                let unauthorized_response: UnauthorizedResponse = response.json().await.unwrap();
+                Err(unauthorized_response)
+            }
+            _ => {
+                let unauthorized_response = UnauthorizedResponse {
+                    code: response.status().as_u16() as i32,
+                    message: format!("Unexpected status code: {}", response.status()),
+                };
+                Err(unauthorized_response)
+            }
+        }
     }
 }
 
