@@ -87,15 +87,9 @@ impl TokenInfo {
 
     pub fn show(self, mask_token: bool) {
         let token = if mask_token {
-            let token_parts: Vec<&str> = self.token.split(".").collect();
-
-            if token_parts.len() > 2 {
-                let length = token_parts.last().unwrap().len();
-                let last_part_masked = "*".repeat(length);
-                format!("{}.{}.{}", token_parts[0], token_parts[1], last_part_masked)
-            } else {
-                self.token.clone()
-            }
+            let mut parts: Vec<_> = self.token.split('.').map(|part| part.to_string()).collect();
+            parts.last_mut().map(|last| *last = "*".repeat(last.len()));
+            parts.join(".")
         } else {
             self.token.clone()
         };
@@ -149,8 +143,6 @@ impl API {
             StatusCode::OK => {
                 let text = response.text().await.unwrap();
                 let raw_json: Value = serde_json::from_str(&text).unwrap();
-
-                println!("{}", raw_json);
 
                 let mut token_info: TokenInfo = serde_json::from_str(&text).unwrap();
                 token_info.fullname =
