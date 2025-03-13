@@ -9,6 +9,12 @@ pub enum StrOrInt {
     I128V(i128),
 }
 
+/*
+TODO:
+
+Migrate all exist functions on utils.rs into the Utils class
+*/
+
 pub fn get_account_creation(snowflake_id: i64, format: Option<&str>) -> String {
     let user_creation = ((snowflake_id >> 22) + 1420070400000) / 1000;
     let user_creation = DateTime::from_timestamp(user_creation, 0)

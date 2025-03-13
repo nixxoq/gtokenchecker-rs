@@ -17,16 +17,17 @@ pub struct TokenInfo {
     pub username: String,
     pub global_name: String,
     pub discriminator: String,
-    #[serde(skip)]
-    pub fullname: String,
-    #[serde(skip)]
-    pub legacy_username: String,
     pub avatar: Option<String>,
     pub banner: Option<String>,
+    pub banner_color: String,
     pub email: String,
     pub phone: Option<String>,
     pub mfa_enabled: bool,
     pub bio: Option<String>,
+
+    // Skip these fields because discord api cannot return them and we will add these fields later during initialization process.
+    #[serde(skip)]
+    pub fullname: String,
     #[serde(skip)]
     pub token: String,
 }
@@ -46,15 +47,18 @@ impl TokenInfo {
         let global_name =
             get_string_value(dict, "global_name", Some("No global username provided")).unwrap();
         let discriminator = get_string_value(dict, "discriminator", Some("#0000")).unwrap();
-        let legacy_username = get_string_value(
-            dict,
-            "legacy_username",
-            Some("No legacy username available"),
-        )
-        .unwrap();
 
+        // TODO:
+        // - implement a function that generates url for account/guild type for icons/banners by typing in arguments
+        // for example gen_url("account", hash_value, "png");
+        // explanation:
+        // gen_url(type: &str, value: String (or &str, i will think about it), image_type: &str) -> String;
+        // and yes... implement this on utils
+        //
         let avatar = get_string_value(dict, "avatar", Some("No avatar provided"));
         let banner = get_string_value(dict, "banner", Some("No banner provided"));
+        let banner_color = get_string_value(dict, "banner_color", Some("#000000")).unwrap();
+
         let email = get_string_value(dict, "email", None).unwrap();
         let phone = get_string_value(dict, "phone", Some("No phone provided"));
 
@@ -73,14 +77,14 @@ impl TokenInfo {
             username,
             global_name,
             discriminator,
-            fullname,
-            legacy_username,
             avatar,
             banner,
+            banner_color,
             email,
             phone,
             mfa_enabled,
             bio,
+            fullname,
             token,
         }
     }
@@ -101,9 +105,9 @@ Token: {}
 ID: {}
 username: {}
 Full name: {}
-Legacy name: {}
 Avatar: {}
 Banner: {}
+Banner color: {}
 E-mail: {}
 Phone: {}
 MFA: {}
@@ -112,9 +116,9 @@ Bio: {}",
             self.id,
             self.username,
             self.fullname,
-            self.legacy_username,
             self.avatar.unwrap_or_default(),
             self.banner.unwrap_or(String::from("No banner provided")),
+            self.banner_color,
             self.email,
             self.phone.unwrap_or(String::from("No phone provided")),
             self.mfa_enabled,
@@ -144,19 +148,13 @@ impl API {
                 let text = response.text().await.unwrap();
                 let raw_json: Value = serde_json::from_str(&text).unwrap();
 
+                // HINT Remove this line after researching results
+                dbg!("{}", raw_json); // let it show some info for adding new features
+
                 let mut token_info: TokenInfo = serde_json::from_str(&text).unwrap();
                 token_info.fullname =
                     format!("{}#{}", token_info.username, token_info.discriminator);
                 token_info.token = String::from(token);
-
-                // workaround to parse legacy_username from older accounts if exists without panicing rust
-                if let Some(legacy_username) =
-                    raw_json.get("legacy_username").and_then(Value::as_str)
-                {
-                    token_info.legacy_username = legacy_username.to_string();
-                } else {
-                    token_info.legacy_username = String::from("No legacy username provided");
-                }
 
                 Ok(token_info)
             }
