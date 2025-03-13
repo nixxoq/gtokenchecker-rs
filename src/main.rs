@@ -1,4 +1,4 @@
-use api::TokenInfo;
+use api::Checker;
 use utils::get_account_creation;
 
 pub mod api;
@@ -10,7 +10,9 @@ async fn main() {
 
     // use api::StrOrInt::*;
 
-    let result = api::API::get_me("token").await;
+    // let result = api::API::get_me("token").await;
+    let result = Checker::new("Token").check().await;
+    // let client =
 
     match result {
         Ok(token_info) => {

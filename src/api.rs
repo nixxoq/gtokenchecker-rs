@@ -132,10 +132,12 @@ pub struct API {}
 impl API {
     pub const API_URL: &'static str = "https://discord.com/api/v9";
 
-    pub async fn get_me(token: &str) -> Result<TokenInfo, UnauthorizedResponse> {
-        // TODO: use serde and reqwest::Client
-        let client = reqwest::Client::builder().build().unwrap();
-
+    // TODO: instead of initializing reqwest client every time, require in the get_me, and other functions in future, client parameter (&reqwest::Client)
+    // UPD 21:52, alright, might work... Yep, it works!
+    pub async fn get_me(
+        client: &reqwest::Client,
+        token: &str,
+    ) -> Result<TokenInfo, UnauthorizedResponse> {
         let response = client
             .get(format!("{}/users/@me", API::API_URL))
             .header("Authorization", token)
@@ -174,9 +176,20 @@ impl API {
 }
 
 pub struct Checker {
+    pub client: reqwest::Client,
     token: String,
 }
 
 impl Checker {
-    pub fn check() {}
+    pub fn new(token: &str) -> Self {
+        let client = reqwest::Client::builder().build().unwrap();
+        Checker {
+            client: client,  // or maybe use const static variable? Hm.... LMT
+            token: String::from(token),
+        }
+    }
+
+    pub async fn check(self) -> Result<TokenInfo, UnauthorizedResponse> {
+        API::get_me(&self.client, &self.token).await
+    }
 }
