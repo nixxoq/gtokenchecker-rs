@@ -1,18 +1,13 @@
 use api::Checker;
-use utils::get_account_creation;
 
 pub mod api;
 pub mod utils;
 
 #[tokio::main]
 async fn main() {
-    get_account_creation(935942230634532884, None);
+    // get_account_creation(935942230634532884, None);
 
-    // use api::StrOrInt::*;
-
-    // let result = api::API::get_me("token").await;
     let result = Checker::new("Token").check().await;
-    // let client =
 
     match result {
         Ok(token_info) => {
