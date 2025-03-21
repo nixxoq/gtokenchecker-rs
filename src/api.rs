@@ -1,9 +1,9 @@
-use reqwest::{self, Client, StatusCode};
+use reqwest::{self, StatusCode};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 
-use crate::utils::{CdnType, ImageType, StrOrInt, Utils};
+use crate::utils::{BannerType, StrOrInt, USER_FLAGS, Utils};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct UnauthorizedResponse {
@@ -25,6 +25,7 @@ pub struct TokenInfo {
     pub phone: Option<String>,
     pub mfa_enabled: bool,
     pub bio: Option<String>,
+    pub public_flags: i128,
 
     // Skip these fields because discord api cannot return them and we will add these fields later during initialization process.
     #[serde(skip)]
@@ -51,26 +52,16 @@ impl TokenInfo {
                 .unwrap();
         let discriminator = Utils::get_string_value(dict, "discriminator", Some("#0000")).unwrap();
 
-        // TODO:
-        // - implement a function that generates url for account/guild type for icons/banners by typing in arguments
-        // for example gen_url("account", hash_value, "png");
-        // explanation:
-        // gen_url(type: &str, value: String (or &str, i will think about it), image_type: &str) -> String;
-        // and yes... implement this on utils
-        //
-
-        // TODO: check if user have animated avatar and/or banner (a_XXXXXX startswith check)
         let avatar = Utils::get_string_value(dict, "avatar", None);
         let avatar_url = match avatar {
-            Some(hash) => Utils::gen_url(CdnType::UserAvatar, &id, &hash, ImageType::Png),
+            Some(hash) => Utils::get_avatar(&id, &hash),
             None => String::from("No avatar provided"),
         };
 
         let banner = Utils::get_string_value(dict, "banner", Some("No banner provided"));
 
-        // TODO: check if user have animated avatar and/or banner (a_XXXXXX startswith check)
         let banner_url = match banner {
-            Some(hash) => Utils::gen_url(CdnType::UserBanner, &id, &hash, ImageType::Png),
+            Some(hash) => Utils::get_banner(BannerType::User, &id, &hash),
             None => String::from("No banner provided"),
         };
 
@@ -91,6 +82,8 @@ impl TokenInfo {
         let token = Utils::get_string_value(dict, "token", None)
             .unwrap_or(String::from("No token provided"));
 
+        let public_flags = Utils::get_string_value(dict, "public_flags", Some("0")).unwrap();
+
         TokenInfo {
             id,
             username,
@@ -104,6 +97,7 @@ impl TokenInfo {
             phone,
             mfa_enabled,
             bio,
+            public_flags: public_flags.parse::<i128>().unwrap(),
             fullname,
             token,
         }
@@ -181,23 +175,12 @@ impl API {
                     format!("{}#{}", token_info.username, token_info.discriminator);
                 token_info.token = String::from(token);
 
-                // TODO: check if user have animated avatar and/or banner (a_XXXXXX startswith check)
                 token_info.avatar = match token_info.avatar {
-                    Some(hash) => Some(Utils::gen_url(
-                        CdnType::UserAvatar,
-                        &token_info.id,
-                        &hash,
-                        ImageType::Png,
-                    )),
+                    Some(hash) => Some(Utils::get_avatar(&token_info.id, &hash)),
                     None => Some(String::from("No avatar available")),
                 };
                 token_info.banner = match token_info.banner {
-                    Some(hash) => Some(Utils::gen_url(
-                        CdnType::UserBanner,
-                        &token_info.id,
-                        &hash,
-                        ImageType::Png,
-                    )),
+                    Some(hash) => Some(Utils::get_banner(BannerType::User, &token_info.id, &hash)),
                     None => Some(String::from("No banner provided")),
                 };
 
@@ -221,49 +204,31 @@ impl API {
 pub struct Checker {
     pub client: reqwest::Client,
     token: String,
-    flags: HashMap<i128, String>,
 }
 
 impl Checker {
     pub fn new(token: &str) -> Self {
         let client = reqwest::Client::builder().build().unwrap();
-        let flags = HashMap::from([
-            (1 << 0, String::from("Staff")),
-            (1 << 1, String::from("Guild Partner")),
-            (1 << 2, String::from("HypeSquad Events Member")),
-            (1 << 3, String::from("Bug Huner Level 1")),
-            (1 << 4, String::from("SMS 2FA Enabled")),
-            (1 << 5, String::from("Dismissed Nitro promotion")),
-            (1 << 6, String::from("House Bravery Member")),
-            (1 << 7, String::from("House Brilliance Member")),
-            (1 << 8, String::from("House Balance Member")),
-            (1 << 9, String::from("Early Nitro Supporter")),
-            (1 << 10, String::from("Team Supporter")),
-            (1 << 13, String::from("Unread urgent system messages")),
-            (1 << 14, String::from("Bug Hunter Level 2")),
-            (1 << 15, String::from("Under age account")),
-            (1 << 16, String::from("Verified Bot")),
-            (1 << 17, String::from("Early Verified Bot Developer")),
-            (1 << 18, String::from("Moderator Programs Alumni")),
-            (1 << 19, String::from("Bot uses only http interactions")),
-            (1 << 20, String::from("Marked as spammer")),
-            (1 << 22, String::from("Active Developer")),
-            (1 << 23, String::from("Provisional Account")),
-            (1 << 33, String::from("Global ratelimit")), // User has their global ratelimit raised to 1,200 requests per second
-            (1 << 34, String::from("Deleted account")),
-            (1 << 35, String::from("Disabled for suspicious activity")),
-            (1 << 36, String::from("Self-deleted account")),
-            (1 << 41, String::from("User account is disabled")),
-        ]);
-
         Checker {
             client: client,
             token: String::from(token),
-            flags: flags.to_owned(),
         }
     }
 
     pub async fn check(self) -> Result<TokenInfo, UnauthorizedResponse> {
         API::get_me(&self.client, &self.token).await
+    }
+
+    pub fn get_user_flags(self, public_flags: i128) -> Vec<String> {
+        USER_FLAGS
+            .iter()
+            .filter_map(|&(key, value)| {
+                if (public_flags & key) == key && key != 0 {
+                    Some(value.to_string())
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 }
