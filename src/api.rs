@@ -132,13 +132,13 @@ Bio: {}",
             self.id,
             self.username,
             self.fullname,
-            self.avatar.unwrap_or_default(),
-            self.banner.unwrap_or_default(),
+            self.avatar.unwrap_or(String::from("No banner provided")),
+            self.banner.unwrap_or(String::from("No banner provided")),
             self.banner_color,
             self.email,
             self.phone.unwrap_or(String::from("No phone provided")),
             self.mfa_enabled,
-            self.bio.unwrap()
+            self.bio.unwrap_or(String::from("No bio provided"))
         )
     }
 }
