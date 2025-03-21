@@ -100,7 +100,7 @@ impl TokenInfo {
             banner: Some(banner_url),
             banner_color,
             email,
-            pronouns,
+            // pronouns,
             phone,
             mfa_enabled,
             bio,
