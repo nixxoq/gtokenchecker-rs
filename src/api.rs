@@ -21,6 +21,7 @@ pub struct TokenInfo {
     pub banner: Option<String>,
     pub banner_color: String,
     pub email: String,
+    // pub pronouns: Option<String>,
     pub phone: Option<String>,
     pub mfa_enabled: bool,
     pub bio: Option<String>,
@@ -84,6 +85,8 @@ impl TokenInfo {
             _ => false,
         };
 
+        // let pronouns = Utils::get_string_value(dict, "pronouns", Some("No pronouns available"));
+
         let bio = Utils::get_string_value(dict, "bio", Some("No bio provided"));
         let token = Utils::get_string_value(dict, "token", None)
             .unwrap_or(String::from("No token provided"));
@@ -97,6 +100,7 @@ impl TokenInfo {
             banner: Some(banner_url),
             banner_color,
             email,
+            pronouns,
             phone,
             mfa_enabled,
             bio,
@@ -128,6 +132,7 @@ E-mail: {}
 Phone: {}
 MFA: {}
 Bio: {}",
+            // pronouns: {}
             token,
             self.id,
             self.username,
@@ -138,7 +143,9 @@ Bio: {}",
             self.email,
             self.phone.unwrap_or(String::from("No phone provided")),
             self.mfa_enabled,
-            self.bio.unwrap_or(String::from("No bio provided"))
+            self.bio.unwrap_or(String::from("No bio provided")),
+            // self.pronouns
+            //     .unwrap_or(String::from("No pronouns available"))
         )
     }
 }
@@ -214,14 +221,45 @@ impl API {
 pub struct Checker {
     pub client: reqwest::Client,
     token: String,
+    flags: HashMap<i128, String>,
 }
 
 impl Checker {
     pub fn new(token: &str) -> Self {
         let client = reqwest::Client::builder().build().unwrap();
+        let flags = HashMap::from([
+            (1 << 0, String::from("Staff")),
+            (1 << 1, String::from("Guild Partner")),
+            (1 << 2, String::from("HypeSquad Events Member")),
+            (1 << 3, String::from("Bug Huner Level 1")),
+            (1 << 4, String::from("SMS 2FA Enabled")),
+            (1 << 5, String::from("Dismissed Nitro promotion")),
+            (1 << 6, String::from("House Bravery Member")),
+            (1 << 7, String::from("House Brilliance Member")),
+            (1 << 8, String::from("House Balance Member")),
+            (1 << 9, String::from("Early Nitro Supporter")),
+            (1 << 10, String::from("Team Supporter")),
+            (1 << 13, String::from("Unread urgent system messages")),
+            (1 << 14, String::from("Bug Hunter Level 2")),
+            (1 << 15, String::from("Under age account")),
+            (1 << 16, String::from("Verified Bot")),
+            (1 << 17, String::from("Early Verified Bot Developer")),
+            (1 << 18, String::from("Moderator Programs Alumni")),
+            (1 << 19, String::from("Bot uses only http interactions")),
+            (1 << 20, String::from("Marked as spammer")),
+            (1 << 22, String::from("Active Developer")),
+            (1 << 23, String::from("Provisional Account")),
+            (1 << 33, String::from("Global ratelimit")), // User has their global ratelimit raised to 1,200 requests per second
+            (1 << 34, String::from("Deleted account")),
+            (1 << 35, String::from("Disabled for suspicious activity")),
+            (1 << 36, String::from("Self-deleted account")),
+            (1 << 41, String::from("User account is disabled")),
+        ]);
+
         Checker {
             client: client,
             token: String::from(token),
+            flags: flags.to_owned(),
         }
     }
 

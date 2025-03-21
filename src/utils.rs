@@ -31,6 +31,7 @@ TODO:
 
 Migrate all exist functions on utils.rs into the Utils class
 */
+
 pub struct Utils {}
 impl Utils {
     pub fn gen_url(
