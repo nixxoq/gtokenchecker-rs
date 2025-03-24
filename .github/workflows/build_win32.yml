@@ -123,6 +123,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          target: ${{ matrix.target }}
+          components: rustfmt
+          override: true
+
+      - name: Install MinGW-w64 toolchain
+        if: matrix.build_os == 'windows'
+        run: |
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends mingw-w64
+
       - name: Get current version from Cargo.toml
         id: get_version
         run: |
@@ -189,13 +203,13 @@ jobs:
           tag_name: v${{ steps.get_version.outputs.current_version }}
           name: Release v${{ steps.get_version.outputs.current_version }}
 
-      - name: Create Tag and GitHub Release
-        if: steps.check_version.outputs.should_release == 'true'
-        run: |
-          git tag -a "v${{ steps.get_version.outputs.current_version }}" -m "Release v${{ steps.get_version.outputs.current_version }}"
-          git push origin "v${{ steps.get_version.outputs.current_version }}"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    #   - name: Create Tag and GitHub Release
+    #     if: steps.check_version.outputs.should_release == 'true'
+    #     run: |
+    #       git tag -a "v${{ steps.get_version.outputs.current_version }}" -m "Release v${{ steps.get_version.outputs.current_version }}"
+    #       git push origin "v${{ steps.get_version.outputs.current_version }}"
+    #     env:
+    #       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Release Assets to GitHub Release
         if: steps.check_version.outputs.should_release == 'true'

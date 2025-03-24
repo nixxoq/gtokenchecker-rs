@@ -26,6 +26,7 @@ change-template: '- "$TITLE" @$AUTHOR (#$NUMBER)'
 template: |
   ## $NEXT_PATCH_VERSION
 
+
   $CHANGES
 
   ### New Contributors
