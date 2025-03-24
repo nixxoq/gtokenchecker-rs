@@ -1,0 +1,136 @@
+name: CI/CD
+
+on:
+  push:
+    branches:
+      - '*'
+    tags:
+      - v*
+
+env:
+  BINARY_NAME: gtokenchecker
+  BUILD_WINDOWS: 1
+  BUILD_LINUX: 1
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-pc-windows-gnu
+            os: windows-latest
+            rust: stable
+            build_os: windows
+            arch: x64
+          - target: i686-pc-windows-gnu
+            os: windows-latest
+            rust: stable
+            build_os: windows
+            arch: x86
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            rust: stable
+            build_os: linux
+            arch: x64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          target: ${{ matrix.target }}
+          override: true
+
+      - name: Determine build type
+        id: build_type
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            echo "build_mode=release" >> $GITHUB_OUTPUT
+          else
+            echo "build_mode=debug" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build project (${{ matrix.build_os }} - ${{ matrix.arch }})
+        if: |
+          (matrix.build_os == 'windows' && env.BUILD_WINDOWS == '1') ||
+          (matrix.build_os == 'linux' && env.BUILD_LINUX == '1')
+        run: cargo build ${{ steps.build_type.outputs.build_mode == 'release' && '--release' || '' }} --target ${{ matrix.target }}
+
+      - name: Create artifacts directory
+        shell: bash
+        run: mkdir -p artifacts
+
+      - name: Copy binary to artifacts (${{ matrix.build_os }} - ${{ matrix.arch }})
+        if: |
+          (matrix.build_os == 'windows' && env.BUILD_WINDOWS == '1') ||
+          (matrix.build_os == 'linux' && env.BUILD_LINUX == '1')
+        shell: bash
+        run: |
+          BUILD_MODE="${{ steps.build_type.outputs.build_mode }}"
+          if [[ "${{ matrix.build_os }}" == "windows" ]]; then
+            cp target/${{ matrix.target }}/${BUILD_MODE}/${{ env.BINARY_NAME }}.exe artifacts/${{ env.BINARY_NAME }}-${{ matrix.target }}.exe
+          else
+            cp target/${{ matrix.target }}/${BUILD_MODE}/${{ env.BINARY_NAME }} artifacts/${{ env.BINARY_NAME }}-${{ matrix.target }}
+          fi
+
+      - name: Upload artifacts (${{ steps.build_type.outputs.build_mode }})
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ env.BINARY_NAME }}-${{ matrix.build_os }}-${{ matrix.arch }}-${{ steps.build_type.outputs.build_mode }}
+          path: artifacts
+          if-no-files-found: ignore
+
+  release:
+    name: Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref_name == 'main' && startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get current version from Cargo.toml
+        id: get_version
+        run: |
+          VERSION=$(grep '^version = ' Cargo.toml | sed -E 's/^version = "(.*)"/\1/')
+          echo "current_version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Get latest release tag
+        id: get_latest_tag
+        run: |
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+
+      - name: Check if version has changed
+        id: check_version
+        run: |
+          CURRENT_VERSION="${{ steps.get_version.outputs.current_version }}"
+          LATEST_TAG="${{ steps.get_latest_tag.outputs.latest_tag }}"
+          LATEST_VERSION="${LATEST_TAG#v}" # Remove the 'v' prefix if it exists
+
+          if [ "$CURRENT_VERSION" != "$LATEST_VERSION" ]; then
+            echo "version_changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "version_changed=false" >> $GITHUB_OUTPUT
+            echo "No version change detected. Skipping release."
+            exit 0
+          fi
+
+      - name: Download all release artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: release-artifacts
+          pattern: '**/*-release'
+
+      - name: Create Release
+        if: steps.check_version.outputs.version_changed == 'true'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.get_version.outputs.current_version }}
+          name: Release v${{ steps.get_version.outputs.current_version }}
+          files: release-artifacts/**/*
