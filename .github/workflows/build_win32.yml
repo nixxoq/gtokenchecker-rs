@@ -110,6 +110,7 @@ jobs:
       - name: Get latest release tag
         id: get_latest_tag
         run: |
+          git fetch --tags
           LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
           echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
 
