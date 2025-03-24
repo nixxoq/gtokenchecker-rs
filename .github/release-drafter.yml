@@ -24,17 +24,17 @@ categories:
       - 'documentation'
 change-template: '- "$TITLE" @$AUTHOR (#$NUMBER)'
 template: |
-  ## $NEXT_VERSION
+  ## $NEXT_PATCH_VERSION
 
   $CHANGES
 
   ### New Contributors
 
-  $NEW_CONTRIBUTORS_LIST
-
   <details><summary>Full Changelog</summary>
   <p>
-
-  $PREVIOUS_TAGS
   </p>
   </details>
+footer: |
+  $CONTRIBUTORS
+
+  $PREVIOUS_TAG
