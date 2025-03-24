@@ -111,30 +111,30 @@ jobs:
         id: get_latest_tag
         run: |
           git fetch --tags
-          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          LATEST_TAG=$(git tag --sort=-v:refname | head -n 1)
           echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
 
       - name: Check if version has changed
         id: check_version
         run: |
-            CURRENT_VERSION=$(grep '^version = ' Cargo.toml | sed -E 's/^version = "(.*)"/\1/')
-            echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-  
-            LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null)
-            echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
-  
-            SHOULD_RELEASE="false"
-  
-            if [[ -n "$LATEST_TAG" ]]; then
-              LATEST_VERSION="${LATEST_TAG#v}"
-              if [[ "$CURRENT_VERSION" != "$LATEST_VERSION" ]]; then
-                SHOULD_RELEASE="true"
-              fi
-            else
+          CURRENT_VERSION=$(grep '^version = ' Cargo.toml | sed -E 's/^version = "(.*)"/\1/')
+          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+
+          LATEST_TAG=$(git tag --sort=-v:refname | head -n 1)
+          echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+
+          SHOULD_RELEASE="false"
+
+          if [[ -n "$LATEST_TAG" ]]; then
+            LATEST_VERSION="${LATEST_TAG#v}"
+            if [[ "$CURRENT_VERSION" != "$LATEST_VERSION" ]]; then
               SHOULD_RELEASE="true"
             fi
-            echo "should_release=$SHOULD_RELEASE" >> $GITHUB_OUTPUT
-            echo "version_changed=$SHOULD_RELEASE" >> $GITHUB_OUTPUT
+          else
+            SHOULD_RELEASE="true"
+          fi
+          echo "should_release=$SHOULD_RELEASE" >> $GITHUB_OUTPUT
+          echo "version_changed=$SHOULD_RELEASE" >> $GITHUB_OUTPUT
 
   release:
     name: Release
