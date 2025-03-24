@@ -152,19 +152,24 @@ jobs:
       - name: Check if version has changed
         id: check_version
         run: |
-          CURRENT_VERSION="${{ steps.get_version.outputs.current_version }}"
-          LATEST_TAG="${{ steps.get_latest_tag.outputs.latest_tag }}"
-          LATEST_VERSION="${LATEST_TAG#v}" # Remove the 'v' prefix if it exists
-
-          if [ "$CURRENT_VERSION" != "$LATEST_VERSION" ]; then
-            echo "version_changed=true" >> $GITHUB_OUTPUT
-            echo "::set-output name=should_release::true"
-          else
-            echo "version_changed=false" >> $GITHUB_OUTPUT
-            echo "No version change detected. Skipping release."
-            echo "::set-output name=should_release::false"
-            exit 0
-          fi
+            CURRENT_VERSION=$(grep '^version = ' Cargo.toml | sed -E 's/^version = "(.*)"/\1/')
+            echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+  
+            LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null)
+            echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+  
+            SHOULD_RELEASE="false"
+  
+            if [[ -n "$LATEST_TAG" ]]; then
+              LATEST_VERSION="${LATEST_TAG#v}"
+              if [[ "$CURRENT_VERSION" != "$LATEST_VERSION" ]]; then
+                SHOULD_RELEASE="true"
+              fi
+            else
+              SHOULD_RELEASE="true"
+            fi
+            echo "should_release=$SHOULD_RELEASE" >> $GITHUB_OUTPUT
+            echo "version_changed=$SHOULD_RELEASE" >> $GITHUB_OUTPUT
 
       - name: Build Release Binaries (${{ matrix.build_os }} - ${{ matrix.arch }})
         if: steps.check_version.outputs.should_release == 'true'
