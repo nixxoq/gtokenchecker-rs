@@ -1,0 +1,40 @@
+name-template: 'v$NEXT_PATCH_VERSION'
+tag-template: 'v$NEXT_PATCH_VERSION'
+version-template: '$NEXT_PATCH_VERSION'
+categories:
+  - title: '⚠️ Breaking Changes'
+    labels:
+      - 'breaking'
+  - title: '✨ Features'
+    labels:
+      - 'feature'
+      - 'enhancement'
+  - title: '🐛 Bug Fixes'
+    labels:
+      - 'bug'
+      - 'bugfix'
+  - title: '🛠️ Refactorings'
+    labels:
+      - 'refactor'
+  - title: '⚙️ CI/CD'
+    labels:
+      - 'ci/cd'
+  - title: '📚 Documentation'
+    labels:
+      - 'documentation'
+change-template: '- "$TITLE" @$AUTHOR (#$NUMBER)'
+template: |
+  ## $NEXT_VERSION
+
+  $CHANGES
+
+  ### New Contributors
+
+  $NEW_CONTRIBUTORS_LIST
+
+  <details><summary>Full Changelog</summary>
+  <p>
+
+  $PREVIOUS_TAGS
+  </p>
+  </details>
