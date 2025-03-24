@@ -8,7 +8,7 @@ on:
       - v*
 
 env:
-  BINARY_NAME: gtokenchecker
+  BINARY_NAME: gtokenchecker-rs
   BUILD_WINDOWS: 1
   BUILD_LINUX: 1
 
@@ -17,6 +17,7 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         include:
           - target: x86_64-pc-windows-gnu
