@@ -1,9 +1,8 @@
 use reqwest::{self, StatusCode};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashMap;
 
-use crate::utils::{BannerType, StrOrInt, USER_FLAGS, Utils};
+use crate::utils::{BannerType, USER_FLAGS, Utils};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct UnauthorizedResponse {
@@ -12,6 +11,41 @@ pub struct UnauthorizedResponse {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+pub struct Connection {
+    #[serde(rename = "type")]
+    pub connection_type: String,
+    pub name: String,
+    pub visibility: u8,
+    pub verified: bool,
+    pub revoked: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Promotion {
+    outbound_title: String,
+    start_time: String,
+    end_date: String,
+    #[serde(rename = "outbound_redemption_page_link")]
+    link: String,
+    code: String,
+}
+
+pub struct TokenResult {
+    pub main_info: TokenInfo,
+    pub connections: Vec<Connection>,
+    pub promotions: Vec<Promotion>,
+}
+
+impl TokenResult {
+    pub fn show(self, mask_token: bool) {
+        self.main_info.show(mask_token);
+        self.connections
+            .iter()
+            .for_each(|connection| println!("{}: {}", connection.connection_type, connection.name));
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TokenInfo {
     pub id: String,
     pub username: String,
@@ -21,6 +55,7 @@ pub struct TokenInfo {
     pub banner: Option<String>,
     pub banner_color: String,
     pub email: String,
+    pub locale: String,
     // pub pronouns: Option<String>,
     pub phone: Option<String>,
     pub mfa_enabled: bool,
@@ -35,74 +70,6 @@ pub struct TokenInfo {
 }
 
 impl TokenInfo {
-    pub fn from_dict(dict: &HashMap<String, StrOrInt>) -> Self {
-        let id = match dict.get("id") {
-            Some(StrOrInt::I32V(value)) => value.to_string(),
-            Some(StrOrInt::I64V(value)) => value.to_string(),
-            Some(StrOrInt::I128V(value)) => value.to_string(),
-            Some(StrOrInt::StrV(value)) => value.clone(),
-            _ => String::new(),
-        };
-
-        let username =
-            Utils::get_string_value(dict, "username", Some("No username provided")).unwrap();
-        let fullname = username.clone() + "#0000";
-        let global_name =
-            Utils::get_string_value(dict, "global_name", Some("No global username provided"))
-                .unwrap();
-        let discriminator = Utils::get_string_value(dict, "discriminator", Some("#0000")).unwrap();
-
-        let avatar = Utils::get_string_value(dict, "avatar", None);
-        let avatar_url = match avatar {
-            Some(hash) => Utils::get_avatar(&id, &hash),
-            None => String::from("No avatar provided"),
-        };
-
-        let banner = Utils::get_string_value(dict, "banner", Some("No banner provided"));
-
-        let banner_url = match banner {
-            Some(hash) => Utils::get_banner(BannerType::User, &id, &hash),
-            None => String::from("No banner provided"),
-        };
-
-        let banner_color = Utils::get_string_value(dict, "banner_color", Some("#000000")).unwrap();
-
-        let email = Utils::get_string_value(dict, "email", None).unwrap();
-        let phone = Utils::get_string_value(dict, "phone", Some("No phone provided"));
-
-        let mfa_enabled = match dict.get("mfa") {
-            Some(StrOrInt::I32V(value)) => *value != 0,
-            Some(StrOrInt::I64V(value)) => *value != 0,
-            _ => false,
-        };
-
-        // let pronouns = Utils::get_string_value(dict, "pronouns", Some("No pronouns available"));
-
-        let bio = Utils::get_string_value(dict, "bio", Some("No bio provided"));
-        let token = Utils::get_string_value(dict, "token", None)
-            .unwrap_or(String::from("No token provided"));
-
-        let public_flags = Utils::get_string_value(dict, "public_flags", Some("0")).unwrap();
-
-        TokenInfo {
-            id,
-            username,
-            global_name,
-            discriminator,
-            avatar: Some(avatar_url),
-            banner: Some(banner_url),
-            banner_color,
-            email,
-            // pronouns,
-            phone,
-            mfa_enabled,
-            bio,
-            public_flags: public_flags.parse::<i128>().unwrap(),
-            fullname,
-            token,
-        }
-    }
-
     pub fn show(self, mask_token: bool) {
         let token = if mask_token {
             let mut parts: Vec<_> = self.token.split('.').map(|part| part.to_string()).collect();
@@ -144,20 +111,33 @@ Bio: {}",
     }
 }
 
-pub struct API {}
+#[derive(Clone)]
+pub struct API<'a> {
+    token: String,
+    client: &'a reqwest::Client,
+}
 
-impl API {
+impl API<'_> {
     pub const API_URL: &'static str = "https://discord.com/api/v9";
+
+    pub fn new(token: String, client: &reqwest::Client) -> API {
+        API {
+            token: token,
+            client: client,
+        }
+    }
 
     // TODO: instead of initializing reqwest client every time, require in the get_me, and other functions in future, client parameter (&reqwest::Client)
     // UPD: don't forget to remove this once all function from original GTokenChecker will be migrated
-    pub async fn get_me(
-        client: &reqwest::Client,
-        token: &str,
+    async fn get_me(
+        self,
+        // client: &reqwest::Client,
+        // token: &str,
     ) -> Result<TokenInfo, UnauthorizedResponse> {
-        let response = client
+        let response = self
+            .client
             .get(format!("{}/users/@me", API::API_URL))
-            .header("Authorization", token)
+            .header("Authorization", &self.token)
             .send()
             .await
             .unwrap();
@@ -173,7 +153,7 @@ impl API {
                 let mut token_info: TokenInfo = serde_json::from_str(&text).unwrap();
                 token_info.fullname =
                     format!("{}#{}", token_info.username, token_info.discriminator);
-                token_info.token = String::from(token);
+                token_info.token = self.token;
 
                 token_info.avatar = match token_info.avatar {
                     Some(hash) => Some(Utils::get_avatar(&token_info.id, &hash)),
@@ -185,6 +165,69 @@ impl API {
                 };
 
                 Ok(token_info)
+            }
+            StatusCode::UNAUTHORIZED => {
+                let unauthorized_response: UnauthorizedResponse = response.json().await.unwrap();
+                Err(unauthorized_response)
+            }
+            _ => {
+                let unauthorized_response = UnauthorizedResponse {
+                    code: response.status().as_u16() as i32,
+                    message: format!("Unexpected status code: {}", response.status()),
+                };
+                Err(unauthorized_response)
+            }
+        }
+    }
+
+    pub async fn get_connections(self) -> Result<Vec<Connection>, UnauthorizedResponse> {
+        let response = self
+            .client
+            .get(format!("{}/users/@me/connections", API::API_URL))
+            .header("Authorization", &self.token)
+            .send()
+            .await
+            .unwrap();
+
+        match response.status() {
+            StatusCode::OK => {
+                let info: Vec<Connection> = response.json().await.unwrap();
+                Ok(info)
+            }
+            StatusCode::UNAUTHORIZED => {
+                let unauthorized_response: UnauthorizedResponse = response.json().await.unwrap();
+                Err(unauthorized_response)
+            }
+            _ => {
+                let unauthorized_response = UnauthorizedResponse {
+                    code: response.status().as_u16() as i32,
+                    message: format!("Unexpected status code: {}", response.status()),
+                };
+                Err(unauthorized_response)
+            }
+        }
+    }
+
+    pub async fn get_promotions(
+        self,
+        locale: Option<String>,
+    ) -> Result<Vec<Promotion>, UnauthorizedResponse> {
+        let response = self
+            .client
+            .get(format!(
+                "{}/users/@me/outbound-promotions/codes?locale={}",
+                API::API_URL,
+                locale.unwrap_or(String::from("us"))
+            ))
+            .header("Authorization", &self.token)
+            .send()
+            .await
+            .unwrap();
+
+        match response.status() {
+            StatusCode::OK => {
+                let info: Vec<Promotion> = response.json().await.unwrap();
+                Ok(info)
             }
             StatusCode::UNAUTHORIZED => {
                 let unauthorized_response: UnauthorizedResponse = response.json().await.unwrap();
@@ -215,8 +258,30 @@ impl Checker {
         }
     }
 
-    pub async fn check(self) -> Result<TokenInfo, UnauthorizedResponse> {
-        API::get_me(&self.client, &self.token).await
+    async fn process_token(self, token: TokenInfo, api: API<'_>) -> TokenResult {
+        let connections = api.clone().get_connections().await.unwrap();
+        let promotions = api
+            .clone()
+            .get_promotions(Some(token.clone().locale))
+            .await
+            .unwrap();
+
+        TokenResult {
+            main_info: token,
+            connections: connections,
+            promotions: promotions,
+        }
+    }
+
+    pub async fn check(self) -> Result<TokenResult, UnauthorizedResponse> {
+        let client = self.client.clone();
+        let api = API::new(self.token.clone(), &client);
+        let token_result = api.clone().get_me().await;
+
+        match token_result {
+            Ok(token) => Ok(self.process_token(token, api.clone()).await),
+            Err(resp) => return Err(resp),
+        }
     }
 
     pub fn get_user_flags(self, public_flags: i128) -> Vec<String> {
