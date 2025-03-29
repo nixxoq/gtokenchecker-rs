@@ -1,3 +1,4 @@
+use crate::utils::enums::ApiError;
 use api::Checker;
 use clap::Parser;
 
@@ -24,11 +25,29 @@ async fn main() {
     let result = Checker::new(&args.token).check().await;
 
     match result {
-        Ok(token_info) => {
-            token_info.show(args.mask_token);
-        }
-        Err(err) => {
-            eprintln!("Error: {}", err.message)
-        }
+        Ok(token_info) => token_info.show(args.mask_token),
+        Err(e) => match e {
+            ApiError::Unauthorized(resp) => eprintln!(
+                " -> Token is invalid or expired. Discord Message: {}",
+                resp.message
+            ),
+            ApiError::RequestError(rq_err) if rq_err.is_connect() => {
+                eprintln!(" -> Network error: Could not connect.")
+            }
+            ApiError::RequestError(rq_err) if rq_err.is_timeout() => {
+                eprintln!(" -> Network error: Request timed out.")
+            }
+            ApiError::RequestError(rq_err) => {
+                eprintln!(" -> Network error: {}", rq_err)
+            }
+            ApiError::ParseError(p_err) => {
+                eprintln!(" -> Failed to parse Discord response: {}", p_err)
+            }
+            ApiError::UnexpectedStatus(status, body) => eprintln!(
+                " -> Discord returned unexpected status {}. Body: {}",
+                status, body
+            ),
+            _ => {}
+        },
     }
 }
