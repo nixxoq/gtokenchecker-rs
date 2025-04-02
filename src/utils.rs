@@ -6,6 +6,7 @@ use enums::{BannerType, CdnType, ImageType, StrOrInt};
 
 pub mod constants;
 pub mod enums;
+pub mod macros;
 pub mod structs;
 
 fn gen_url(cdn_type: CdnType, type_id: &String, hash: &String, image_type: ImageType) -> String {
