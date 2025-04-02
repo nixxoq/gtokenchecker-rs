@@ -31,10 +31,7 @@ async fn main() {
                 " -> Token is invalid or expired. Discord Message: {}",
                 resp.message
             ),
-            ApiError::RequestError(rq_err) if rq_err.is_connect() => {
-                eprintln!(" -> Network error: Could not connect.")
-            }
-            ApiError::RequestError(rq_err) if rq_err.is_timeout() => {
+            ApiError::RequestError(rq_err) if rq_err.is_timeout() && rq_err.is_connect() => {
                 eprintln!(" -> Network error: Request timed out.")
             }
             ApiError::RequestError(rq_err) => {
