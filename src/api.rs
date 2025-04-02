@@ -4,12 +4,16 @@ use reqwest::{
 };
 use serde_json::Value;
 
-use crate::utils::{
-    Utils,
-    constants::USER_FLAGS,
-    enums::{ApiError, BannerType},
-    structs::{Connection, Promotion, TokenInfo, TokenResult, UnauthorizedResponse},
+use crate::{
+    request,
+    utils::{
+        Utils,
+        constants::USER_FLAGS,
+        enums::{ApiError, BannerType},
+        structs::{Connection, Promotion, TokenInfo, TokenResult, UnauthorizedResponse},
+    },
 };
+use tokio::join;
 
 pub struct API<'a> {
     token: String,
@@ -21,19 +25,15 @@ impl<'a> API<'a> {
 
     pub fn new(token: String, client: &'a reqwest::Client) -> API<'a> {
         API {
-            token: token,
-            client: client,
+            token,
+            client,
         }
     }
 
     // TODO: instead of initializing reqwest client every time, require in the get_me, and other functions in future, client parameter (&reqwest::Client)
     // UPD: don't forget to remove this once all function from original GTokenChecker will be migrated
     async fn get_me(&self) -> Result<TokenInfo, ApiError> {
-        let response = self
-            .client
-            .get(format!("{}/users/@me", API::API_URL))
-            .send()
-            .await?;
+        let response = request!(self.client, get, "/users/@me");
 
         let status = response.status();
         match status {
@@ -84,12 +84,7 @@ impl<'a> API<'a> {
     }
 
     pub async fn get_connections(&self) -> Result<Vec<Connection>, UnauthorizedResponse> {
-        let response = self
-            .client
-            .get(format!("{}/users/@me/connections", API::API_URL))
-            .send()
-            .await
-            .unwrap();
+        let response = request!(self.client, get, "/users/@me/connections");
 
         match response.status() {
             StatusCode::OK => {
@@ -114,12 +109,38 @@ impl<'a> API<'a> {
         &self,
         locale: Option<&str>,
     ) -> Result<Vec<Promotion>, UnauthorizedResponse> {
+        let response = request!(
+            self.client,
+            get,
+            "/users/@me/outbound-promotions/codes",
+            locale = locale.unwrap_or("us")
+        );
+
+        match response.status() {
+            StatusCode::OK => {
+                let info: Vec<Promotion> = response.json().await.unwrap();
+                Ok(info)
+            }
+            StatusCode::UNAUTHORIZED => {
+                let unauthorized_response: UnauthorizedResponse = response.json().await.unwrap();
+                Err(unauthorized_response)
+            }
+            _ => {
+                let unauthorized_response = UnauthorizedResponse {
+                    code: response.status().as_u16() as i32,
+                    message: format!("Unexpected status code: {}", response.status()),
+                };
+                Err(unauthorized_response)
+            }
+        }
+    }
+
+    pub async fn check_boosts(&self) -> Result<(), UnauthorizedResponse> {
         let response = self
             .client
             .get(format!(
-                "{}/users/@me/outbound-promotions/codes?locale={}",
-                API::API_URL,
-                locale.unwrap_or("us")
+                "{}/users/@me/guilds/premium/subscription-slots",
+                API::API_URL
             ))
             .send()
             .await
@@ -127,8 +148,10 @@ impl<'a> API<'a> {
 
         match response.status() {
             StatusCode::OK => {
-                let info: Vec<Promotion> = response.json().await.unwrap();
-                Ok(info)
+                let raw_json: Value =
+                    serde_json::from_str(&response.text().await.unwrap()).unwrap();
+                println!("{raw_json}");
+                Ok(())
             }
             StatusCode::UNAUTHORIZED => {
                 let unauthorized_response: UnauthorizedResponse = response.json().await.unwrap();
@@ -165,27 +188,36 @@ impl Checker {
         }
     }
 
-    async fn process_token(&self, token: TokenInfo, api: &API<'_>) -> TokenResult {
-        let connections = api.get_connections().await.unwrap();
-        let promotions = api
-            .get_promotions(Some(token.locale.as_ref()))
-            .await
-            .unwrap();
+    async fn process_token(
+        &self,
+        token: TokenInfo,
+        api: &API<'_>,
+    ) -> Result<TokenResult, ApiError> {
+        let connections = api.get_connections();
+        let promotions = api.get_promotions(Some(token.locale.as_ref()));
+        let boosts = api.check_boosts();
 
-        TokenResult {
+        let (connections_result, promotions_result, _boosts) =
+            join!(connections, promotions, boosts);
+
+        Ok(TokenResult {
             main_info: token,
-            connections,
-            promotions,
-        }
+            connections: connections_result.unwrap(),
+            promotions: promotions_result.unwrap(),
+        })
     }
 
     pub async fn check(self) -> Result<TokenResult, ApiError> {
         let api = API::new(self.token.clone(), &self.client);
+
         let token_result = api.get_me().await;
 
         match token_result {
-            Ok(token) => Ok(self.process_token(token, &api).await),
-            Err(resp) => return Err(resp),
+            Ok(token) => {
+                let result = self.process_token(token, &api).await;
+                Ok(result?)
+            }
+            Err(resp) => Err(resp),
         }
     }
 
