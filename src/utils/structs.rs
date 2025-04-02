@@ -69,7 +69,9 @@ impl TokenInfo {
     pub fn show(self, mask_token: bool) {
         let token = if mask_token {
             let mut parts: Vec<_> = self.token.split('.').map(|part| part.to_string()).collect();
-            parts.last_mut().map(|last| *last = "*".repeat(last.len()));
+            if let Some(last) = parts.last_mut() {
+                *last = "*".repeat(last.len());
+            }
             parts.join(".")
         } else {
             self.token.clone()

@@ -50,11 +50,11 @@ impl Utils {
             CdnType::UserAvatar,
             type_id,
             hash,
-            hash.to_lowercase()
-                .starts_with("a_")
-                .then_some(ImageType::Gif)
-                .or(Some(ImageType::Png))
-                .unwrap(),
+            if hash.to_lowercase().starts_with("a_") {
+                ImageType::Gif
+            } else {
+                ImageType::Png
+            },
         )
     }
 
