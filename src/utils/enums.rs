@@ -35,7 +35,9 @@ pub enum ApiError {
     RequestError(reqwest::Error),
     ParseError(serde_json::Error),
     UnexpectedStatus(StatusCode, String),
+    RateLimited(Option<UnauthorizedResponse>),
     ClientBuildError(reqwest::Error),
+    IoError(std::io::Error),
 }
 
 impl fmt::Display for ApiError {
@@ -49,7 +51,13 @@ impl fmt::Display for ApiError {
             ApiError::UnexpectedStatus(status, body) => {
                 write!(f, "Unexpected status code: {}. Body: {}", status, body)
             }
+            ApiError::RateLimited(resp_opt) => write!(
+                f,
+                "Rate Limited (429). {}",
+                resp_opt.as_ref().map_or("", |r| &r.message)
+            ),
             ApiError::ClientBuildError(err) => write!(f, "Failed to build HTTP client: {}", err),
+            ApiError::IoError(err) => write!(f, "I/O error: {}", err),
         }
     }
 }
@@ -62,6 +70,8 @@ impl Error for ApiError {
             ApiError::ParseError(err) => Some(err),
             ApiError::ClientBuildError(err) => Some(err),
             ApiError::Unauthorized(_) => None,
+            ApiError::IoError(err) => Some(err),
+            ApiError::RateLimited(_) => None,
             ApiError::UnexpectedStatus(_, _) => None,
         }
     }
@@ -78,5 +88,11 @@ impl From<reqwest::Error> for ApiError {
 impl From<serde_json::Error> for ApiError {
     fn from(err: serde_json::Error) -> Self {
         ApiError::ParseError(err)
+    }
+}
+
+impl From<std::io::Error> for ApiError {
+    fn from(err: std::io::Error) -> Self {
+        ApiError::IoError(err)
     }
 }
