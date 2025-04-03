@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::utils::Utils;
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct UnauthorizedResponse {
     pub code: i32,
@@ -30,6 +32,7 @@ pub struct TokenResult {
     pub main_info: TokenInfo,
     pub connections: Vec<Connection>,
     pub promotions: Vec<Promotion>,
+    pub rate_limited: bool,
 }
 
 impl TokenResult {
@@ -68,13 +71,9 @@ pub struct TokenInfo {
 impl TokenInfo {
     pub fn show(self, mask_token: bool) {
         let token = if mask_token {
-            let mut parts: Vec<_> = self.token.split('.').map(|part| part.to_string()).collect();
-            if let Some(last) = parts.last_mut() {
-                *last = "*".repeat(last.len());
-            }
-            parts.join(".")
+            Utils::mask_last_part(self.token.as_str())
         } else {
-            self.token.clone()
+            self.token
         };
 
         println!(
