@@ -1,62 +1,13 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fs, path::Path};
 
 use chrono::DateTime;
+use constants::DISCORD_CDN_BASE;
+use enums::{BannerType, CdnType, ImageType, StrOrInt};
 
-pub enum StrOrInt {
-    StrV(String),
-    I32V(i32),
-    I64V(i64),
-    I128V(i128),
-}
-pub enum CdnType {
-    UserAvatar,
-    GuildIcon,
-    Banner(BannerType),
-}
-
-pub enum BannerType {
-    User,
-    Guild,
-}
-
-pub enum ImageType {
-    Png,
-    Jpg,
-    Jpeg,
-    Webp,
-    Gif,
-    Svg,
-}
-
-const DISCORD_CDN_BASE: &str = "https://cdn.discordapp.com";
-pub const USER_FLAGS: &[(i128, &str)] = &[
-    (1 << 0, "Staff"),
-    (1 << 1, "Guild Partner"),
-    (1 << 2, "HypeSquad Events Member"),
-    (1 << 3, "Bug Huner Level 1"),
-    (1 << 4, "SMS 2FA Enabled"),
-    (1 << 5, "Dismissed Nitro promotion"),
-    (1 << 6, "House Bravery Member"),
-    (1 << 7, "House Brilliance Member"),
-    (1 << 8, "House Balance Member"),
-    (1 << 9, "Early Nitro Supporter"),
-    (1 << 10, "Team Supporter"),
-    (1 << 13, "Unread urgent system messages"),
-    (1 << 14, "Bug Hunter Level 2"),
-    (1 << 15, "Under age account"),
-    (1 << 16, "Verified Bot"),
-    (1 << 17, "Early Verified Bot Developer"),
-    (1 << 18, "Moderator Programs Alumni"),
-    (1 << 19, "Bot uses only http interactions"),
-    (1 << 20, "Marked as spammer"),
-    (1 << 22, "Active Developer"),
-    (1 << 23, "Provisional Account"),
-    (1 << 33, "Global ratelimit"), // User has their global ratelimit raised to 1,200 requests per second
-    (1 << 34, "Deleted account"),
-    (1 << 35, "Disabled for suspicious activity"),
-    (1 << 36, "Self-deleted account"),
-    (1 << 41, "User account is disabled"),
-];
+pub mod constants;
+pub mod enums;
+pub mod macros;
+pub mod structs;
 
 fn gen_url(cdn_type: CdnType, type_id: &String, hash: &String, image_type: ImageType) -> String {
     let result = format!(
@@ -71,7 +22,8 @@ fn gen_url(cdn_type: CdnType, type_id: &String, hash: &String, image_type: Image
     result
 }
 
-pub struct Utils {}
+pub struct Utils;
+
 impl Utils {
     pub fn gen_url(
         cdn_type: CdnType,
@@ -80,6 +32,57 @@ impl Utils {
         image_type: ImageType,
     ) -> String {
         gen_url(cdn_type, type_id, hash, image_type)
+    }
+
+    /// Reads Discord tokens from the provided input string.
+    ///
+    /// This function determines if the input string represents a valid file path.
+    /// - If it's a file path, it reads the file content, extracting one token per non-empty line
+    ///   (leading/trailing whitespace is trimmed).
+    /// - If it's not a file path, the input string itself is treated as a single token
+    ///
+    /// # Arguments
+    ///
+    /// * `input`: A string slice (`&str`) which is either a path to a text file
+    ///            containing tokens (one per line) or a single token string.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Vec<String>)`: A vector containing the extracted token strings if successful.
+    ///                      If the input was not a file, this vector will contain exactly one element.
+    /// * `Err(String)`: An error message string if:
+    ///     - The input is a file path, but the file cannot be read (e.g., permissions, not found).
+    ///     - The input is a file path, but the file is empty or contains only whitespace lines.
+    ///     - The input is not a file path, and the trimmed input string is empty.
+    ///
+    pub fn read_tokens_from_input(input: &str) -> Result<Vec<String>, String> {
+        // TODO: include REGEX pattern to search discord tokens in txt file
+        let path = Path::new(input);
+        if path.is_file() {
+            fs::read_to_string(path)
+                .map_err(|e| format!("Failed reading file '{}': {}", input, e))
+                .and_then(|content| {
+                    let tokens: Vec<String> = content
+                        .lines()
+                        .map(str::trim)
+                        .filter(|l| !l.is_empty())
+                        .map(String::from)
+                        .collect();
+
+                    if tokens.is_empty() {
+                        Err(format!("Token file is empty: {}", path.display()))
+                    } else {
+                        Ok(tokens)
+                    }
+                })
+        } else {
+            let token = input.trim();
+            if token.is_empty() {
+                Err("Provided token string is empty.".to_string())
+            } else {
+                Ok(vec![token.to_string()])
+            }
+        }
     }
 
     /// Generates the URL for a user avatar from Discord's CDN
@@ -96,15 +99,15 @@ impl Utils {
     /// A `String` containing the full URL to the user's avatar on Discord's CDN.
     ///
     pub fn get_avatar(type_id: &String, hash: &String) -> String {
-        gen_url(
+        Self::gen_url(
             CdnType::UserAvatar,
             type_id,
             hash,
-            hash.to_lowercase()
-                .starts_with("a_")
-                .then_some(ImageType::Gif)
-                .or(Some(ImageType::Png))
-                .unwrap(),
+            if hash.to_lowercase().starts_with("a_") {
+                ImageType::Gif
+            } else {
+                ImageType::Png
+            },
         )
     }
 
@@ -122,16 +125,14 @@ impl Utils {
     /// A `String` containing the full URL to the user/guild banner on Discord's CDN.
     ///
     pub fn get_banner(banner_type: BannerType, type_id: &String, hash: &String) -> String {
-        format!(
-            "{}/{}/{}/{}.{}",
-            DISCORD_CDN_BASE,
-            CdnType::Banner(banner_type).as_str(),
+        Self::gen_url(
+            CdnType::Banner(banner_type),
             type_id,
             hash,
             hash.starts_with("a_")
-                .then_some(ImageType::Gif.as_str())
-                .or(Some(ImageType::Png.as_str()))
-                .unwrap()
+                .then_some(ImageType::Gif)
+                .or(ImageType::Png.into())
+                .unwrap(),
         )
     }
 
@@ -157,6 +158,21 @@ impl Utils {
         user_creation
     }
 
+    /// Retrieves a string value associated with a key from a HashMap<String, StrOrInt>.
+    ///
+    /// Note: This function always returns `Some(String)`, never `None`.
+    ///
+    /// # Arguments
+    ///
+    /// * `dict`: A reference to the HashMap containing `String` keys and `StrOrInt` values.
+    /// * `key`: The string slice representing the key to look up.
+    /// * `default_value`: An optional string slice to return if the key is not found
+    ///                    or the value is not a `StrV`. Defaults to `""` if `None`.
+    ///
+    /// # Returns
+    ///
+    /// * `Some(String)`: Containing either the found string value or the default value.
+    ///
     pub fn get_string_value(
         dict: &HashMap<String, StrOrInt>,
         key: &str,
@@ -165,6 +181,27 @@ impl Utils {
         match dict.get(key) {
             Some(StrOrInt::StrV(value)) => Some(value.clone()),
             _ => Some(default_value.unwrap_or("").to_string()),
+        }
+    }
+
+    /// Masks the last part of a string (aka discord token) separated by dots (`.`).
+    ///
+    /// # Arguments
+    ///
+    /// * `token`: The input string slice (`&str`) to mask.
+    ///
+    /// # Returns
+    ///
+    /// * `String`: The potentially masked string.
+    ///
+    pub fn mask_last_part(token: &str) -> String {
+        let mut parts: Vec<_> = token.split(".").map(|part| part.to_owned()).collect();
+        match parts.last_mut() {
+            Some(last) => {
+                *last = "*".repeat(last.len());
+                parts.join(".")
+            }
+            _ => token.to_owned(),
         }
     }
 }
