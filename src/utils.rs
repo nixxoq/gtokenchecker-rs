@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fs, path::Path};
 
 use chrono::DateTime;
 use constants::DISCORD_CDN_BASE;
@@ -21,7 +21,9 @@ fn gen_url(cdn_type: CdnType, type_id: &String, hash: &String, image_type: Image
 
     result
 }
+
 pub struct Utils;
+
 impl Utils {
     pub fn gen_url(
         cdn_type: CdnType,
@@ -30,6 +32,57 @@ impl Utils {
         image_type: ImageType,
     ) -> String {
         gen_url(cdn_type, type_id, hash, image_type)
+    }
+
+    /// Reads Discord tokens from the provided input string.
+    ///
+    /// This function determines if the input string represents a valid file path.
+    /// - If it's a file path, it reads the file content, extracting one token per non-empty line
+    ///   (leading/trailing whitespace is trimmed).
+    /// - If it's not a file path, the input string itself is treated as a single token
+    ///
+    /// # Arguments
+    ///
+    /// * `input`: A string slice (`&str`) which is either a path to a text file
+    ///            containing tokens (one per line) or a single token string.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Vec<String>)`: A vector containing the extracted token strings if successful.
+    ///                      If the input was not a file, this vector will contain exactly one element.
+    /// * `Err(String)`: An error message string if:
+    ///     - The input is a file path, but the file cannot be read (e.g., permissions, not found).
+    ///     - The input is a file path, but the file is empty or contains only whitespace lines.
+    ///     - The input is not a file path, and the trimmed input string is empty.
+    ///
+    pub fn read_tokens_from_input(input: &str) -> Result<Vec<String>, String> {
+        // TODO: include REGEX pattern to search discord tokens in txt file
+        let path = Path::new(input);
+        if path.is_file() {
+            fs::read_to_string(path)
+                .map_err(|e| format!("Failed reading file '{}': {}", input, e))
+                .and_then(|content| {
+                    let tokens: Vec<String> = content
+                        .lines()
+                        .map(str::trim)
+                        .filter(|l| !l.is_empty())
+                        .map(String::from)
+                        .collect();
+
+                    if tokens.is_empty() {
+                        Err(format!("Token file is empty: {}", path.display()))
+                    } else {
+                        Ok(tokens)
+                    }
+                })
+        } else {
+            let token = input.trim();
+            if token.is_empty() {
+                Err("Provided token string is empty.".to_string())
+            } else {
+                Ok(vec![token.to_string()])
+            }
+        }
     }
 
     /// Generates the URL for a user avatar from Discord's CDN
@@ -105,6 +158,21 @@ impl Utils {
         user_creation
     }
 
+    /// Retrieves a string value associated with a key from a HashMap<String, StrOrInt>.
+    ///
+    /// Note: This function always returns `Some(String)`, never `None`.
+    ///
+    /// # Arguments
+    ///
+    /// * `dict`: A reference to the HashMap containing `String` keys and `StrOrInt` values.
+    /// * `key`: The string slice representing the key to look up.
+    /// * `default_value`: An optional string slice to return if the key is not found
+    ///                    or the value is not a `StrV`. Defaults to `""` if `None`.
+    ///
+    /// # Returns
+    ///
+    /// * `Some(String)`: Containing either the found string value or the default value.
+    ///
     pub fn get_string_value(
         dict: &HashMap<String, StrOrInt>,
         key: &str,
@@ -113,6 +181,27 @@ impl Utils {
         match dict.get(key) {
             Some(StrOrInt::StrV(value)) => Some(value.clone()),
             _ => Some(default_value.unwrap_or("").to_string()),
+        }
+    }
+
+    /// Masks the last part of a string (aka discord token) separated by dots (`.`).
+    ///
+    /// # Arguments
+    ///
+    /// * `token`: The input string slice (`&str`) to mask.
+    ///
+    /// # Returns
+    ///
+    /// * `String`: The potentially masked string.
+    ///
+    pub fn mask_last_part(token: &str) -> String {
+        let mut parts: Vec<_> = token.split(".").map(|part| part.to_owned()).collect();
+        match parts.last_mut() {
+            Some(last) => {
+                *last = "*".repeat(last.len());
+                parts.join(".")
+            }
+            _ => token.to_owned(),
         }
     }
 }
