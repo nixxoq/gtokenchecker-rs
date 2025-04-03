@@ -14,22 +14,20 @@
 ///
 #[macro_export]
 macro_rules! request {
-    ($client:expr, $method:ident, $path:expr, $($key:ident = $value:expr),*) => {
+    ($client:expr, $method:ident, $path:expr, $($key:ident = $value:expr),* $(,)?) => {
         {
-            let mut url = format!("{}{}", API::API_URL, $path);
-            let mut params = Vec::new();
-            $(
-                params.push(format!("{}={}", stringify!($key), $value));
-            )*
-            if !params.is_empty() {
-                url.push_str("?");
-                url.push_str(&params.join("&"));
-            }
+            let query_string: String = {
+                let qs: Vec<String> = vec![
+                    $(format!("{}={}", stringify!($key), $value)),*
+                ];
+                qs.join("&")
+            };
+
+            let url = format!("{}{}?{}", API::API_URL, $path, query_string);
             $client
                 .$method(&url)
                 .send()
                 .await
-                .unwrap()
         }
     };
     ($client:expr, $method:ident, $path:expr) => {
@@ -37,6 +35,5 @@ macro_rules! request {
             .$method(format!("{}{}", API::API_URL, $path))
             .send()
             .await
-            .unwrap()
     };
 }
