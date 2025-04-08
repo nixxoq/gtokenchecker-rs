@@ -1,7 +1,7 @@
 use std::{collections::HashMap, fs, path::Path};
 
-use chrono::DateTime;
-use constants::DISCORD_CDN_BASE;
+use chrono::{DateTime, Utc};
+use constants::{DISCORD_CDN_BASE, USER_FLAGS};
 use enums::{BannerType, CdnType, ImageType, StrOrInt};
 
 pub mod constants;
@@ -158,6 +158,28 @@ impl Utils {
         user_creation
     }
 
+    /// Formats an ISO-like time string into a human-readable format
+    ///
+    ///
+    /// # Arguments
+    ///
+    /// * `time_str`: date (String) to format (ex. "2024-08-30T23:41:13.947000+00:00")
+    /// * `format`: strftime string to format (defaults `"%d.%m.%Y %H:%M:%S"`)
+    ///
+    /// # Returns
+    ///
+    /// A string containing the formatted time if `time_str` argument was successfully converted into the `chrono::DateTime` class.
+    /// Otherwise, returns the original `time_str` if parsing fails
+    pub fn format_time(time_str: &String, format: Option<&str>) -> String {
+        let parsed_time = time_str.parse::<DateTime<Utc>>().ok();
+        if let Some(time) = parsed_time {
+            time.format(format.unwrap_or("%d.%m.%Y %H:%M:%S"))
+                .to_string()
+        } else {
+            time_str.to_string()
+        }
+    }
+
     /// Retrieves a string value associated with a key from a HashMap<String, StrOrInt>.
     ///
     /// Note: This function always returns `Some(String)`, never `None`.
@@ -203,6 +225,19 @@ impl Utils {
             }
             _ => token.to_owned(),
         }
+    }
+
+    pub fn get_user_flags(public_flags: i128) -> Vec<String> {
+        USER_FLAGS
+            .iter()
+            .filter_map(|&(key, value)| {
+                if (public_flags & key) == key && key != 0 {
+                    Some(value.to_string())
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 }
 
