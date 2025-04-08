@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::utils::Utils;
+use crate::utils::{Utils, constants::FRIEND_TYPE};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct UnauthorizedResponse {
@@ -18,6 +18,100 @@ pub struct Connection {
     pub revoked: bool,
 }
 
+impl Connection {
+    pub fn show(&self, index: usize, all_connections: usize) {
+        println!(
+            "
+Connection #{} of {}
+
+Connection type: {}
+Name: {}
+Visible: {}
+Verified: {}
+Revoked: {}
+",
+            index,
+            all_connections,
+            self.connection_type,
+            self.name,
+            self.visibility != 0,
+            self.verified,
+            self.revoked
+        )
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct PublicUser {
+    pub id: String,
+    pub avatar: Option<String>,
+    pub global_name: Option<String>,
+    pub public_flags: i128,
+    pub username: String,
+    pub discriminator: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Relationship {
+    pub id: String,
+    pub is_spam_request: bool,
+    pub nickname: Option<String>,
+    pub user: PublicUser,
+    #[serde(rename = "since")]
+    pub friendship_since: String,
+    // pub friendship_since: Option<String>,
+    #[serde(rename = "type")]
+    pub friend_type: i32,
+}
+
+impl Relationship {
+    pub fn show(&self, index: usize, all_friends: usize) {
+        let friend_type = FRIEND_TYPE
+            .iter()
+            .find(|&&(key, _value)| key == self.friend_type)
+            .map(|&(_k, v)| v)
+            .unwrap_or("Unknown type");
+
+        let avatar = self
+            .user
+            .avatar
+            .as_ref()
+            .map(|hash| Utils::get_avatar(&self.id, hash))
+            .unwrap_or("No avatar provided".to_owned());
+
+        let friends_since = Utils::format_time(&self.friendship_since, None);
+        let flags = Utils::get_user_flags(self.user.public_flags);
+
+        let flags = match flags.is_empty() {
+            true => "No public flags available".to_string(),
+            false => flags.join(","),
+        };
+
+        println!(
+            "Friend #{} of {}
+
+ID: {}
+Avatar: {}
+Nickname: {}
+Name#tag: {}#{}
+Friend type: {}
+Flags: {}
+Friends since: {}
+",
+            index + 1,
+            all_friends,
+            self.id,
+            avatar,
+            self.nickname.as_ref().unwrap_or(&"No nickname".to_string()),
+            self.user.username,
+            self.user.discriminator,
+            friend_type,
+            flags,
+            friends_since,
+        )
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Promotion {
     outbound_title: String,
@@ -31,6 +125,7 @@ pub struct Promotion {
 pub struct TokenResult {
     pub main_info: TokenInfo,
     pub connections: Vec<Connection>,
+    pub relationships: Vec<Relationship>,
     pub promotions: Vec<Promotion>,
     pub rate_limited: bool,
 }
@@ -38,9 +133,16 @@ pub struct TokenResult {
 impl TokenResult {
     pub fn show(self, mask_token: bool) {
         self.main_info.show(mask_token);
+        println!("----------------------------- CONNECTIONS -----------------------------");
         self.connections
             .iter()
-            .for_each(|connection| println!("{}: {}", connection.connection_type, connection.name));
+            .enumerate()
+            .for_each(|(index, connection)| connection.show(index, self.connections.len()));
+        println!("----------------------------- RELATIONSHIPS -----------------------------");
+        self.relationships
+            .iter()
+            .enumerate()
+            .for_each(|(index, relationship)| relationship.show(index, self.relationships.len()));
     }
 }
 
