@@ -27,3 +27,9 @@ pub const USER_FLAGS: &[(i128, &str)] = &[
     (1 << 36, "Self-deleted account"),
     (1 << 41, "User account is disabled"),
 ];
+pub const FRIEND_TYPE: &[(i32, &str)] = &[
+    (1, "Friend"),
+    (2, "Block"),
+    (3, "Incoming friend request"),
+    (4, "Outgoing friend request"),
+];
