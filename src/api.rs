@@ -7,9 +7,10 @@ use crate::{
     request,
     utils::{
         Utils,
-        constants::USER_FLAGS,
         enums::{ApiError, BannerType},
-        structs::{Connection, Promotion, TokenInfo, TokenResult, UnauthorizedResponse},
+        structs::{
+            Connection, Promotion, Relationship, TokenInfo, TokenResult, UnauthorizedResponse,
+        },
     },
 };
 use tokio::join;
@@ -176,6 +177,38 @@ impl<'a> API<'a> {
             }
         }
     }
+
+    pub async fn get_relationships(&self) -> Result<Vec<Relationship>, ApiError> {
+        let response = request!(self.client, get, "/users/@me/relationships")?;
+
+        match response.status() {
+            StatusCode::OK => {
+                let response: Vec<Relationship> = response.json().await?;
+                Ok(response)
+            }
+            StatusCode::UNAUTHORIZED => {
+                let resp: UnauthorizedResponse = response.json().await.unwrap_or_else(|e| {
+                    eprintln!("Warn: Failed to parse UNAUTHORIZED body (boosts): {}", e);
+                    UnauthorizedResponse {
+                        code: 401,
+                        message: "Unauthorized (parsing failed)".into(),
+                    }
+                });
+                Err(ApiError::Unauthorized(resp))
+            }
+            StatusCode::TOO_MANY_REQUESTS => {
+                let resp_opt: Option<UnauthorizedResponse> = response.json().await.ok();
+                Err(ApiError::RateLimited(resp_opt))
+            }
+            status => {
+                let body = response
+                    .text()
+                    .await
+                    .unwrap_or_else(|_err| format!("Status: {}", status));
+                Err(ApiError::UnexpectedStatus(status, body))
+            }
+        }
+    }
 }
 
 pub struct Checker {
@@ -209,10 +242,15 @@ impl Checker {
         let connections_future = api.get_connections();
         let promotions_future = api.get_promotions(Some(&token_info.locale));
         let boosts_future = api.check_boosts();
+        let relationships_future = api.get_relationships();
         let mut rate_limited = false;
 
-        let (connections_result, promotions_result, boosts_result) =
-            join!(connections_future, promotions_future, boosts_future);
+        let (connections_result, promotions_result, boosts_result, relationships_result) = join!(
+            connections_future,
+            promotions_future,
+            boosts_future,
+            relationships_future
+        );
 
         let connections = match connections_result {
             Ok(data) => data,
@@ -246,6 +284,22 @@ impl Checker {
             }
         };
 
+        let relationships = match relationships_result {
+            Ok(data) => data,
+            Err(ApiError::RateLimited(_)) => {
+                rate_limited = true;
+                Vec::new()
+            }
+            Err(e) => {
+                eprintln!(
+                    " Warn (token: {}): Failed to get relationships: {}",
+                    Utils::mask_last_part(&self.token),
+                    e
+                );
+                Vec::new()
+            }
+        };
+
         match boosts_result {
             Ok(_) => {}
             Err(ApiError::RateLimited(_)) => {
@@ -263,6 +317,7 @@ impl Checker {
         Ok(TokenResult {
             main_info: token_info,
             connections,
+            relationships,
             promotions,
             rate_limited,
         })
@@ -273,18 +328,5 @@ impl Checker {
         let token_info = api.get_me().await?;
 
         self.process_token(token_info, &api).await
-    }
-
-    pub fn get_user_flags(&self, public_flags: i128) -> Vec<String> {
-        USER_FLAGS
-            .iter()
-            .filter_map(|&(key, value)| {
-                if (public_flags & key) == key && key != 0 {
-                    Some(value.to_string())
-                } else {
-                    None
-                }
-            })
-            .collect()
     }
 }
