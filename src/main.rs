@@ -1,5 +1,7 @@
-use crate::utils::{Utils, enums::ApiError, structs::TokenResult};
-use api::Checker;
+use crate::{
+    checker::Checker,
+    utils::{Utils, enums::ApiError, structs::TokenResult},
+};
 use clap::Parser;
 use std::{process::exit, time::Duration};
 use tokio::{
@@ -8,6 +10,7 @@ use tokio::{
 };
 
 pub mod api;
+mod checker;
 pub mod utils;
 type CheckTaskOutput = (usize, String, Result<TokenResult, ApiError>);
 
