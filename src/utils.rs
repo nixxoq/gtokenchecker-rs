@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs, path::Path};
+use std::{collections::HashMap, fs, path::Path, time::Duration};
 
 use chrono::{DateTime, Utc};
 use constants::{DISCORD_CDN_BASE, USER_FLAGS};
@@ -238,6 +238,11 @@ impl Utils {
                 }
             })
             .collect()
+    }
+
+    pub fn parse_duration_secs(arg: &str) -> Result<Duration, std::num::ParseIntError> {
+        let seconds = arg.parse()?;
+        Ok(Duration::from_secs(seconds))
     }
 }
 

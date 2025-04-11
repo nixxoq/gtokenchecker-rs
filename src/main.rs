@@ -24,6 +24,18 @@ pub struct Args {
     /// Mask last token part for security purposes
     #[arg(short, long, default_value_t = false)]
     pub mask_token: bool,
+
+    /// Maximum check retries for the token
+    #[arg(short, long, default_value_t = 5)]
+    pub check_retries: u8,
+
+    /// Delay (in seconds) before retrying a request after hitting a rate limit [default: 10]
+    #[arg(short, long, value_parser = Utils::parse_duration_secs, default_value = "10")]
+    pub ratelimit_retry_delay: Duration,
+
+    /// Delay (in seconds) before retrying a failed network request [default: 5]
+    #[arg(short, long, value_parser = Utils::parse_duration_secs, default_value = "5")]
+    pub network_retry_delay: Duration,
 }
 
 #[tokio::main]
@@ -48,11 +60,6 @@ async fn main() {
 
     let mut tasks: Vec<JoinHandle<CheckTaskOutput>> = Vec::new();
 
-    // TODO: parse this arguments using clap
-    const MAX_CHECK_RETRIES: u32 = 100;
-    const NETWORK_RETRY_DELAY: Duration = Duration::from_secs(2);
-    const RATELIMIT_RETRY_DELAY: Duration = Duration::from_secs(10);
-
     for (index, token) in tokens_to_check.into_iter().enumerate() {
         let current_index = index;
 
@@ -61,7 +68,7 @@ async fn main() {
                 std::io::Error::new(std::io::ErrorKind::Other, "Initial loop error"),
             ));
 
-            for attempt in 0..MAX_CHECK_RETRIES {
+            for attempt in 0..args.check_retries {
                 let checker = Checker::new(&token);
                 let result = checker.check().await;
 
@@ -73,16 +80,16 @@ async fn main() {
                     Err(ref _reqw_err @ ApiError::RequestError(ref req_err))
                         if req_err.is_timeout() || req_err.is_connect() || req_err.is_request() =>
                     {
-                        if attempt < MAX_CHECK_RETRIES - 1 {
+                        if attempt < args.check_retries - 1 {
                             eprintln!(
                                 " -> [Token #{}/{}] Network error. Retrying in {:?}... ({}/{})",
                                 current_index + 1,
                                 total_tokens,
-                                NETWORK_RETRY_DELAY,
+                                args.network_retry_delay,
                                 attempt + 1,
-                                MAX_CHECK_RETRIES
+                                args.check_retries
                             );
-                            sleep(NETWORK_RETRY_DELAY).await;
+                            sleep(args.network_retry_delay).await;
                         } else {
                             final_result = result;
                             break;
@@ -90,16 +97,16 @@ async fn main() {
                     }
 
                     Err(ref _rate @ ApiError::RateLimited(_)) => {
-                        if attempt < MAX_CHECK_RETRIES - 1 {
+                        if attempt < args.check_retries - 1 {
                             eprintln!(
                                 " -> [Token #{}/{}] Rate Limited (429). Retrying in {:?}... ({}/{})",
                                 current_index + 1,
                                 total_tokens,
-                                RATELIMIT_RETRY_DELAY,
+                                args.ratelimit_retry_delay,
                                 attempt + 1,
-                                MAX_CHECK_RETRIES
+                                args.check_retries
                             );
-                            sleep(RATELIMIT_RETRY_DELAY).await;
+                            sleep(args.ratelimit_retry_delay).await;
                         } else {
                             final_result = result;
                             break;
