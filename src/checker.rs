@@ -15,6 +15,20 @@ pub struct Checker {
     token: String,
 }
 impl Checker {
+    /// Creates a new `Checker` instance with the given token.
+    ///
+    /// # Parameters
+    ///
+    /// * `token`: The Discord token to use for checking.
+    ///
+    /// # Returns
+    ///
+    /// A new `Checker` instance.
+    ///
+    /// # Errors
+    ///
+    /// This function will panic if the token cannot be inserted into the headers
+    /// or if the client cannot be built.
     pub fn new(token: &str) -> Self {
         let mut headers = HeaderMap::new();
         headers.insert(
@@ -33,6 +47,31 @@ impl Checker {
         }
     }
 
+    /// Processes a given token and returns the result of all API calls.
+    ///
+    /// This function calls the following API endpoints in parallel:
+    ///
+    /// - `GET /users/@me/connections`
+    /// - `GET /users/@me/guilds/premium/subscription-slots`
+    /// - `GET /users/@me/guilds/premium/subscriptions`
+    /// - `GET /users/@me/relationships`
+    ///
+    /// If any of the API calls return a rate limit error, this function will return a `TokenResult`
+    /// with `rate_limited` set to `true`. If any of the API calls fail with an error that is not
+    /// a rate limit error, this function will log the error with the `Warn` level and continue
+    /// with the next API call.
+    ///
+    /// # Errors
+    ///
+    /// If any of the API calls fail with an error that is not a rate limit error, this function
+    /// will log the error with the `Warn` level and continue with the next API call. If any of
+    /// the API calls return a rate limit error, this function will return a `TokenResult` with
+    /// `rate_limited` set to `true`.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if the API calls fail with an error that is not a rate limit
+    /// error.
     async fn process_token(
         &self,
         token_info: TokenInfo,
@@ -122,6 +161,19 @@ impl Checker {
         })
     }
 
+    /// Checks the token and returns the result of all API calls.
+    ///
+    /// This function initializes the API client and retrieves the user's token information
+    /// using the `get_me` API call. It then processes the token by calling the `process_token`
+    /// method, which executes several API endpoints in parallel to gather data related to the
+    /// token.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(TokenResult)`: A `TokenResult` containing the token information and results
+    ///   from the API calls, if successful.
+    /// * `Err(ApiError)`: An error if the initial `get_me` API call or any subsequent
+    ///   API calls fail.
     pub async fn check(self) -> Result<TokenResult, ApiError> {
         let api = API::new(self.token.clone(), &self.client);
         let token_info = api.get_me().await?;
