@@ -81,13 +81,21 @@ impl Checker {
         let promotions_future = api.get_promotions(Some(&token_info.locale));
         let boosts_future = api.check_boosts();
         let relationships_future = api.get_relationships();
+        let guilds_future = api.get_guilds();
         let mut rate_limited = false;
 
-        let (connections_result, promotions_result, boosts_result, relationships_result) = join!(
+        let (
+            connections_result,
+            promotions_result,
+            boosts_result,
+            relationships_result,
+            guilds_result,
+        ) = join!(
             connections_future,
             promotions_future,
             boosts_future,
-            relationships_future
+            relationships_future,
+            guilds_future
         );
 
         let connections = match connections_result {
@@ -138,6 +146,22 @@ impl Checker {
             }
         };
 
+        let guilds = match guilds_result {
+            Ok(data) => data,
+            Err(ApiError::RateLimited(_)) => {
+                rate_limited = true;
+                Vec::new()
+            }
+            Err(e) => {
+                eprintln!(
+                    " Warn (token: {}): Failed to get relationships: {}",
+                    Utils::mask_last_part(&self.token),
+                    e
+                );
+                Vec::new()
+            }
+        };
+
         match boosts_result {
             Ok(_) => {}
             Err(ApiError::RateLimited(_)) => {
@@ -158,6 +182,7 @@ impl Checker {
             relationships,
             promotions,
             rate_limited,
+            guilds,
         })
     }
 
