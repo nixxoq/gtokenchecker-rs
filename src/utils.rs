@@ -227,6 +227,15 @@ impl Utils {
         }
     }
 
+    /// Returns a vector of strings containing the user flags given the public flags.
+    ///
+    /// # Arguments
+    ///
+    /// * `public_flags`: The public flags as an `i128` from the User object.
+    ///
+    /// # Returns
+    ///
+    /// * `Vec<String>`: A vector of strings containing the user flags as strings.
     pub fn get_user_flags(public_flags: i128) -> Vec<String> {
         USER_FLAGS
             .iter()
@@ -240,6 +249,23 @@ impl Utils {
             .collect()
     }
 
+    /// Parses a string slice as a duration in seconds.
+    ///
+    /// This function attempts to parse the input string as an integer, which is then
+    /// converted to a `Duration` object representing that many seconds.
+    ///
+    /// # Arguments
+    ///
+    /// * `arg`: A string slice (`&str`) representing the number of seconds.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Duration)`: A `Duration` object if the string is successfully parsed.
+    /// * `Err(std::num::ParseIntError)`: An error if the string cannot be parsed as an integer.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the input string is not a valid representation of an integer.
     pub fn parse_duration_secs(arg: &str) -> Result<Duration, std::num::ParseIntError> {
         let seconds = arg.parse()?;
         Ok(Duration::from_secs(seconds))
@@ -247,7 +273,8 @@ impl Utils {
 }
 
 impl CdnType {
-    pub fn as_str(&self) -> &'static str {
+    /// Returns a string representation of the `CdnType` enum as a path for a Discord CDN URL.
+    pub fn as_str<'a>(&self) -> &'a str {
         match self {
             CdnType::UserAvatar => "avatars",
             CdnType::Banner(BannerType::Guild | BannerType::User) => "banners",
@@ -257,7 +284,8 @@ impl CdnType {
 }
 
 impl ImageType {
-    pub fn as_str(&self) -> &'static str {
+    /// Returns a string representation of the `ImageType` enum as a file extension for a Discord CDN URL.
+    pub fn as_str<'a>(&self) -> &'a str {
         match self {
             ImageType::Png => "png",
             ImageType::Jpg => "jpg",
