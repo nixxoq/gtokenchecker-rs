@@ -1,7 +1,7 @@
 use std::{collections::HashMap, fs, path::Path, time::Duration};
 
 use chrono::{DateTime, Utc};
-use constants::{DISCORD_CDN_BASE, USER_FLAGS};
+use constants::{DISCORD_CDN_BASE, USER_FLAGS, USER_PERMISSIONS};
 use enums::{BannerType, CdnType, ImageType, StrOrInt};
 
 pub mod constants;
@@ -269,6 +269,32 @@ impl Utils {
     pub fn parse_duration_secs(arg: &str) -> Result<Duration, std::num::ParseIntError> {
         let seconds = arg.parse()?;
         Ok(Duration::from_secs(seconds))
+    }
+
+    /// Returns a vector of strings containing the user permissions given the user's permissions.
+    ///
+    /// This function takes a string slice representing the user's permissions as an `i128`
+    /// and returns a vector of strings containing the user permissions as strings.
+    ///
+    /// # Arguments
+    ///
+    /// * `user_permissions`: A string slice (`&str`) representing the user's permissions as an `i128`.
+    ///
+    /// # Returns
+    ///
+    /// * `Vec<String>`: A vector of strings containing the user permissions as strings.
+    pub fn get_user_permissions(user_permissions: &str) -> Vec<String> {
+        let user_permissions = user_permissions.parse::<i128>().unwrap_or(0);
+        USER_PERMISSIONS
+            .iter()
+            .filter_map(|&(key, value)| {
+                if (user_permissions & key) == key {
+                    Some(value.to_string())
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 }
 
