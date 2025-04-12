@@ -5,7 +5,7 @@ use crate::{
     utils::{
         Utils,
         enums::{ApiError, BannerType},
-        structs::{Connection, Promotion, Relationship, TokenInfo, UnauthorizedResponse},
+        structs::{Connection, Guild, Promotion, Relationship, TokenInfo, UnauthorizedResponse},
     },
 };
 
@@ -285,7 +285,42 @@ impl<'a> API<'a> {
             }
             StatusCode::UNAUTHORIZED => {
                 let resp: UnauthorizedResponse = response.json().await.unwrap_or_else(|e| {
-                    eprintln!("Warn: Failed to parse UNAUTHORIZED body (boosts): {}", e);
+                    eprintln!(
+                        "Warn: Failed to parse UNAUTHORIZED body (relationships): {}",
+                        e
+                    );
+                    UnauthorizedResponse {
+                        code: 401,
+                        message: "Unauthorized (parsing failed)".into(),
+                    }
+                });
+                Err(ApiError::Unauthorized(resp))
+            }
+            StatusCode::TOO_MANY_REQUESTS => {
+                let resp_opt: Option<UnauthorizedResponse> = response.json().await.ok();
+                Err(ApiError::RateLimited(resp_opt))
+            }
+            status => {
+                let body = response
+                    .text()
+                    .await
+                    .unwrap_or_else(|_err| format!("Status: {}", status));
+                Err(ApiError::UnexpectedStatus(status, body))
+            }
+        }
+    }
+
+    pub async fn get_guilds(&self) -> Result<Vec<Guild>, ApiError> {
+        let response = request!(self.client, get, "/users/@me/guilds?with_counts=true")?;
+
+        match response.status() {
+            StatusCode::OK => {
+                let guilds: Vec<Guild> = response.json().await?;
+                Ok(guilds)
+            }
+            StatusCode::UNAUTHORIZED => {
+                let resp: UnauthorizedResponse = response.json().await.unwrap_or_else(|e| {
+                    eprintln!("Warn: Failed to parse UNAUTHORIZED body (guilds): {}", e);
                     UnauthorizedResponse {
                         code: 401,
                         message: "Unauthorized (parsing failed)".into(),
