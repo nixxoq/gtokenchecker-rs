@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::utils::{Utils, constants::FRIEND_TYPE};
+use crate::utils::{Utils, constants::FRIEND_TYPE, enums::BannerType};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct UnauthorizedResponse {
@@ -122,12 +122,66 @@ pub struct Promotion {
     code: String,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Guild {
+    pub id: String,
+    pub name: String,
+    #[serde(rename = "owner")]
+    pub is_owner: bool,
+    pub permissions: String,
+    pub icon: Option<String>,
+    pub banner: Option<String>,
+    #[serde(rename = "approximate_member_count")]
+    pub member_count: i128,
+}
+
+// Maybe should I create trait?
+
+impl Guild {
+    pub fn show(&self, index: usize, all_guilds: usize) {
+        let permissions = Utils::get_user_permissions(&self.permissions).join(", ");
+        let icon = self
+            .icon
+            .as_ref()
+            .map(|hash| Utils::get_avatar(&self.id, hash))
+            .unwrap_or("No icon provided".to_owned());
+
+        let banner = self
+            .banner
+            .as_ref()
+            .map(|hash| Utils::get_banner(BannerType::Guild, &self.id, hash))
+            .unwrap_or("No banner provided".to_owned());
+
+        println!(
+            "Guild #{} of {}
+ID: {}
+Name: {}
+Is user owner: {}
+User permissions: {}
+Icon: {}
+Banner: {}
+Member count: {}
+",
+            index + 1,
+            all_guilds,
+            self.id,
+            self.name,
+            self.is_owner,
+            permissions,
+            icon,
+            banner,
+            self.member_count
+        )
+    }
+}
+
 pub struct TokenResult {
     pub main_info: TokenInfo,
     pub connections: Vec<Connection>,
     pub relationships: Vec<Relationship>,
     pub promotions: Vec<Promotion>,
     pub rate_limited: bool,
+    pub guilds: Vec<Guild>,
 }
 
 impl TokenResult {
@@ -143,6 +197,11 @@ impl TokenResult {
             .iter()
             .enumerate()
             .for_each(|(index, relationship)| relationship.show(index, self.relationships.len()));
+        println!("----------------------------- GUILDS -----------------------------");
+        self.guilds
+            .iter()
+            .enumerate()
+            .for_each(|(index, guild)| guild.show(index, self.guilds.len()));
     }
 }
 
