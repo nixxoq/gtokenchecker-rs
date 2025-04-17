@@ -9,19 +9,6 @@ pub mod enums;
 pub mod macros;
 pub mod structs;
 
-fn gen_url(cdn_type: CdnType, type_id: &String, hash: &String, image_type: ImageType) -> String {
-    let result = format!(
-        "{}/{}/{}/{}.{}",
-        DISCORD_CDN_BASE,
-        cdn_type.as_str(),
-        type_id,
-        hash,
-        image_type.as_str()
-    );
-
-    result
-}
-
 pub struct Utils;
 
 impl Utils {
@@ -31,7 +18,16 @@ impl Utils {
         hash: &String,
         image_type: ImageType,
     ) -> String {
-        gen_url(cdn_type, type_id, hash, image_type)
+        let result = format!(
+            "{}/{}/{}/{}.{}",
+            DISCORD_CDN_BASE,
+            cdn_type.as_str(),
+            type_id,
+            hash,
+            image_type.as_str()
+        );
+
+        result
     }
 
     /// Reads Discord tokens from the provided input string.
