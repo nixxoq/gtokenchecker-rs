@@ -77,11 +77,6 @@ impl Checker {
         token_info: TokenInfo,
         api: &API<'_>,
     ) -> Result<TokenResult, ApiError> {
-        let connections_future = api.get_connections();
-        let promotions_future = api.get_promotions(Some(&token_info.locale));
-        let boosts_future = api.check_boosts();
-        let relationships_future = api.get_relationships();
-        let guilds_future = api.get_guilds();
         let mut rate_limited = false;
 
         let (
@@ -91,11 +86,11 @@ impl Checker {
             relationships_result,
             guilds_result,
         ) = join!(
-            connections_future,
-            promotions_future,
-            boosts_future,
-            relationships_future,
-            guilds_future
+            api.get_connections(),
+            api.get_promotions(Some(&token_info.locale)),
+            api.check_boosts(),
+            api.get_relationships(),
+            api.get_guilds()
         );
 
         let connections = match connections_result {
