@@ -27,29 +27,51 @@ impl TokenResult {
     pub fn show(self, mask_token: bool) {
         self.main_info.show(mask_token);
         println!("----------------------------- CONNECTIONS -----------------------------");
-        self.connections
-            .iter()
-            .enumerate()
-            .for_each(|(index, connection)| connection.show(index, self.connections.len()));
+        if self.connections.is_empty() {
+            println!("No connections available\n")
+        } else {
+            self.connections
+                .iter()
+                .enumerate()
+                .for_each(|(index, connection)| connection.show(index, self.connections.len()))
+        };
         println!("----------------------------- RELATIONSHIPS -----------------------------");
-        self.relationships
-            .iter()
-            .enumerate()
-            .for_each(|(index, relationship)| relationship.show(index, self.relationships.len()));
+        if self.relationships.is_empty() {
+            println!("No relationships available\n")
+        } else {
+            self.relationships
+                .iter()
+                .enumerate()
+                .for_each(|(index, relationship)| {
+                    relationship.show(index, self.relationships.len())
+                })
+        };
         println!("----------------------------- GUILDS -----------------------------");
-        self.guilds
-            .iter()
-            .enumerate()
-            .for_each(|(index, guild)| guild.show(index, self.guilds.len()));
+        if self.guilds.is_empty() {
+            println!("No guilds available\n")
+        } else {
+            self.guilds
+                .iter()
+                .enumerate()
+                .for_each(|(index, guild)| guild.show(index, self.guilds.len()))
+        };
         println!("----------------------------- BOOSTS -----------------------------");
-        self.boosts
-            .iter()
-            .enumerate()
-            .for_each(|(index, boost)| boost.show(index, self.boosts.len()));
-        println!("----------------------------- PROMOTIONS -----------------------------");
-        self.promotions
-            .iter()
-            .enumerate()
-            .for_each(|(index, promotion)| promotion.show(index, self.connections.len()));
+        if self.boosts.is_empty() {
+            println!("No boosts available\n")
+        } else {
+            self.boosts
+                .iter()
+                .enumerate()
+                .for_each(|(index, boost)| boost.show(index, self.boosts.len()))
+        };
+        println!("----------------------------- PROMOTIONS -------------------------");
+        if self.promotions.is_empty() {
+            println!("No promotions available\n")
+        } else {
+            self.promotions
+                .iter()
+                .enumerate()
+                .for_each(|(index, promotion)| promotion.show(index, self.connections.len()))
+        };
     }
 }
