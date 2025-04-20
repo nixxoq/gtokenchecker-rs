@@ -157,10 +157,11 @@ impl Checker {
             }
         };
 
-        match boosts_result {
-            Ok(_) => {}
+        let boosts = match boosts_result {
+            Ok(data) => data,
             Err(ApiError::RateLimited(_)) => {
                 rate_limited = true;
+                Vec::new()
             }
             Err(e) => {
                 eprintln!(
@@ -168,8 +169,9 @@ impl Checker {
                     &self.token[..5],
                     e
                 );
+                Vec::new()
             }
-        }
+        };
 
         Ok(TokenResult {
             main_info: token_info,
@@ -178,6 +180,7 @@ impl Checker {
             promotions,
             rate_limited,
             guilds,
+            boosts,
         })
     }
 

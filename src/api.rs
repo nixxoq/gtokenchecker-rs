@@ -1,11 +1,14 @@
 use reqwest::{self, StatusCode};
+use serde_json::Value;
 
 use crate::{
     request,
     utils::{
         Utils,
         enums::{ApiError, BannerType},
-        structs::{Connection, Guild, Promotion, Relationship, TokenInfo, UnauthorizedResponse},
+        structs::{
+            Boost, Connection, Guild, Promotion, Relationship, TokenInfo, UnauthorizedResponse,
+        },
     },
 };
 
@@ -224,7 +227,7 @@ impl<'a> API<'a> {
     /// * `ApiError::Unauthorized`: Returned if the request fails with a 401 Unauthorized status.
     /// * `ApiError::RateLimited`: Returned if the request fails due to rate limiting.
     /// * `ApiError::UnexpectedStatus`: Returned for any unexpected status codes.
-    pub async fn check_boosts(&self) -> Result<(), ApiError> {
+    pub async fn check_boosts(&self) -> Result<Vec<Boost>, ApiError> {
         let response = request!(
             self.client,
             get,
@@ -232,7 +235,10 @@ impl<'a> API<'a> {
         )?;
 
         match response.status() {
-            StatusCode::OK => Ok(()),
+            StatusCode::OK => {
+                let boosts_info: Vec<Boost> = response.json().await?;
+                Ok(boosts_info)
+            }
             StatusCode::UNAUTHORIZED => {
                 let resp: UnauthorizedResponse = response.json().await.unwrap_or_else(|e| {
                     eprintln!("Warn: Failed to parse UNAUTHORIZED body (boosts): {}", e);
