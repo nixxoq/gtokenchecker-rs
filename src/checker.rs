@@ -6,7 +6,7 @@ use crate::{
     utils::{
         Utils,
         enums::ApiError,
-        structs::{TokenInfo, TokenResult},
+        structs::{TokenResult, token_info::TokenInfo},
     },
 };
 

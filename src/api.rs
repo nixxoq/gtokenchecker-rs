@@ -1,5 +1,4 @@
 use reqwest::{self, StatusCode};
-use serde_json::Value;
 
 use crate::{
     request,
@@ -7,7 +6,8 @@ use crate::{
         Utils,
         enums::{ApiError, BannerType},
         structs::{
-            Boost, Connection, Guild, Promotion, Relationship, TokenInfo, UnauthorizedResponse,
+            UnauthorizedResponse, connections::Connection, guild::Guild, nitro::Boost,
+            nitro::Promotion, relationship::Relationship, token_info::TokenInfo,
         },
     },
 };
