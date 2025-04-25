@@ -21,6 +21,71 @@ pub struct PremiumGuildSubscription {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+pub struct Nitro {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub nitro_type: i32,
+    pub created_at: String,
+    pub canceled_at: Option<String>,
+    #[serde(rename = "current_period_start")]
+    pub start_time: Option<String>,
+    #[serde(rename = "current_period_end")]
+    pub end_time: Option<String>,
+}
+
+impl Nitro {
+    pub fn show(&self, index: usize, all_nitro: usize) {
+        // let start_date = if !self.start_time.is_none() {
+        //     Utils::format_time(&self.start_time.unwrap(), None)
+        // } else {
+        // };
+        let nitro_type = if self.nitro_type == 1 {
+            "nitro"
+        } else if self.nitro_type == 2 {
+            "nitro classic"
+        } else if self.nitro_type == 3 {
+            "nitro basic"
+        } else {
+            "unknown type"
+        };
+
+        let start_date = match &self.start_time {
+            Some(time) => Utils::format_time(&time, None),
+            _ => "no start time provided".to_owned(),
+        };
+
+        let end_date = match &self.end_time {
+            Some(time) => Utils::format_time(&time, None),
+            _ => "no end time provided".to_owned(),
+        };
+
+        let cancel_date = match &self.canceled_at {
+            Some(time) => Utils::format_time(&time, None),
+            _ => "no cancellation time provided".to_owned(),
+        };
+
+        println!(
+            "
+Nitro info #{} of {}
+
+Id: {}
+Start time: {}
+End time: {}
+Cancelation time: {}
+Nitro type: {}
+",
+            index + 1,
+            all_nitro,
+            self.id,
+            start_date,
+            end_date,
+            cancel_date,
+            nitro_type,
+        )
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Boost {
     pub id: String,
     pub subscription_id: String,

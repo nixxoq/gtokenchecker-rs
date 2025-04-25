@@ -21,6 +21,8 @@ pub struct TokenResult {
     pub rate_limited: bool,
     pub guilds: Vec<guild::Guild>,
     pub boosts: Vec<nitro::Boost>,
+    pub nitro_info: Vec<nitro::Nitro>,
+    pub nitro_credits: (usize, usize),
 }
 
 impl TokenResult {
@@ -73,5 +75,23 @@ impl TokenResult {
                 .enumerate()
                 .for_each(|(index, promotion)| promotion.show(index, self.connections.len()))
         };
+        println!("-------------------------- NITRO & GIFTS -------------------------");
+        if self.nitro_info.is_empty() {
+            println!("No basic Nitro info available\n")
+        } else {
+            self.nitro_info
+                .iter()
+                .enumerate()
+                .for_each(|(index, nitro)| nitro.show(index, self.nitro_info.len()))
+        };
+        println!(
+            "
+Nitro credits:
+
+Classic: {}
+Boost: {}
+",
+            self.nitro_credits.0, self.nitro_credits.1
+        )
     }
 }
