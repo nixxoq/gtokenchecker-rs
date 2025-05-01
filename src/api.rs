@@ -451,12 +451,7 @@ impl<'a> API<'a> {
         match response.status() {
             StatusCode::OK => {
                 let gift: Vec<Gift> = response.json().await?;
-                // let text: Value = Value::from(response.text().await?);
-                // let nitro_json: Vec<Nitro> = response.json().await?;
-                // println!("{:#?}", nitro_json);
-                // Ok(nitro_json)
                 Ok(gift)
-                // Ok(())
             }
             StatusCode::UNAUTHORIZED => {
                 let resp: UnauthorizedResponse = response.json().await.unwrap_or_else(|e| {
