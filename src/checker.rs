@@ -87,6 +87,7 @@ impl Checker {
             guilds_result,
             nitro_result,
             nitro_credits_result,
+            gifts_result,
         ) = join!(
             api.get_connections(),
             api.get_promotions(Some(&token_info.locale)),
@@ -94,7 +95,8 @@ impl Checker {
             api.get_relationships(),
             api.get_guilds(),
             api.get_nitro_info(),
-            api.check_nitro_credit()
+            api.check_nitro_credit(),
+            api.get_gifts()
         );
 
         let connections = match connections_result {
@@ -209,6 +211,22 @@ impl Checker {
             }
         };
 
+        let gifts = match gifts_result {
+            Ok(data) => data,
+            Err(ApiError::RateLimited(_)) => {
+                rate_limited = true;
+                Vec::new()
+            }
+            Err(e) => {
+                eprintln!(
+                    " Warn (token: {}...): Failed to check nitro info: {}",
+                    &self.token[..5],
+                    e
+                );
+                Vec::new()
+            }
+        };
+
         Ok(TokenResult {
             main_info: token_info,
             connections,
@@ -219,6 +237,7 @@ impl Checker {
             boosts,
             nitro_info: nitro,
             nitro_credits,
+            gifts,
         })
     }
 

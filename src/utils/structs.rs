@@ -1,3 +1,4 @@
+use nitro::Gift;
 use serde::{Deserialize, Serialize};
 
 pub mod connections;
@@ -23,6 +24,7 @@ pub struct TokenResult {
     pub boosts: Vec<nitro::Boost>,
     pub nitro_info: Vec<nitro::Nitro>,
     pub nitro_credits: (usize, usize),
+    pub gifts: Vec<Gift>,
 }
 
 impl TokenResult {
@@ -76,6 +78,7 @@ impl TokenResult {
                 .for_each(|(index, promotion)| promotion.show(index, self.connections.len()))
         };
         println!("-------------------------- NITRO & GIFTS -------------------------");
+        println!("NITRO INFO:\n");
         if self.nitro_info.is_empty() {
             println!("No basic Nitro info available\n")
         } else {
@@ -92,6 +95,15 @@ Classic: {}
 Boost: {}
 ",
             self.nitro_credits.0, self.nitro_credits.1
-        )
+        );
+        println!("GIFTS INFO:\n");
+        if self.gifts.is_empty() {
+            println!("No gifts available\n")
+        } else {
+            self.gifts
+                .iter()
+                .enumerate()
+                .for_each(|(index, gift)| gift.show(index, self.gifts.len()));
+        }
     }
 }

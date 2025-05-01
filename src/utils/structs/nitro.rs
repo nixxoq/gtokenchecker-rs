@@ -33,12 +33,35 @@ pub struct Nitro {
     pub end_time: Option<String>,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Gift {
+    pub subscription_plan: Option<SubscriptionPlan>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SubscriptionPlan {
+    // I don't know all structure of SubscriptionPlan, so I copied from original GTokenChecker
+    pub name: String,
+}
+
+impl Gift {
+    pub fn show(&self, index: usize, all_gifts: usize) {
+        let subscription_name = &self.subscription_plan.as_ref().unwrap().name;
+
+        println!(
+            "
+Gift info #{} of {}
+
+Subscription name: {}",
+            index + 1,
+            all_gifts,
+            subscription_name
+        )
+    }
+}
+
 impl Nitro {
     pub fn show(&self, index: usize, all_nitro: usize) {
-        // let start_date = if !self.start_time.is_none() {
-        //     Utils::format_time(&self.start_time.unwrap(), None)
-        // } else {
-        // };
         let nitro_type = if self.nitro_type == 1 {
             "nitro"
         } else if self.nitro_type == 2 {
