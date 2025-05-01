@@ -9,7 +9,7 @@ use crate::{
             UnauthorizedResponse,
             connections::Connection,
             guild::Guild,
-            nitro::{Boost, Nitro, Promotion},
+            nitro::{Boost, Gift, Nitro, Promotion},
             relationship::Relationship,
             token_info::TokenInfo,
         },
@@ -421,9 +421,46 @@ impl<'a> API<'a> {
             StatusCode::UNAUTHORIZED => {
                 let resp: UnauthorizedResponse = response.json().await.unwrap_or_else(|e| {
                     eprintln!(
-                        "Warn: Failed to parse UNAUTHORIZED body (nitro credits): {}",
+                        "Warn: Failed to parse UNAUTHORIZED body (nitro info): {}",
                         e
                     );
+                    UnauthorizedResponse {
+                        code: 401,
+                        message: "Unauthorized (parsing failed)".into(),
+                    }
+                });
+                Err(ApiError::Unauthorized(resp))
+            }
+            StatusCode::TOO_MANY_REQUESTS => {
+                let resp_opt: Option<UnauthorizedResponse> = response.json().await.ok();
+                Err(ApiError::RateLimited(resp_opt))
+            }
+            status => {
+                let body = response
+                    .text()
+                    .await
+                    .unwrap_or_else(|_err| format!("Status: {}", status));
+                Err(ApiError::UnexpectedStatus(status, body))
+            }
+        }
+    }
+
+    pub async fn get_gifts(&self) -> Result<Vec<Gift>, ApiError> {
+        let response = request!(self.client, get, "/users/@me/entitlements/gifts")?;
+
+        match response.status() {
+            StatusCode::OK => {
+                let gift: Vec<Gift> = response.json().await?;
+                // let text: Value = Value::from(response.text().await?);
+                // let nitro_json: Vec<Nitro> = response.json().await?;
+                // println!("{:#?}", nitro_json);
+                // Ok(nitro_json)
+                Ok(gift)
+                // Ok(())
+            }
+            StatusCode::UNAUTHORIZED => {
+                let resp: UnauthorizedResponse = response.json().await.unwrap_or_else(|e| {
+                    eprintln!("Warn: Failed to parse UNAUTHORIZED body (gifts): {}", e);
                     UnauthorizedResponse {
                         code: 401,
                         message: "Unauthorized (parsing failed)".into(),
