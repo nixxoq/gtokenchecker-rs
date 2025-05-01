@@ -46,6 +46,7 @@ pub struct SubscriptionPlan {
 
 impl Gift {
     pub fn show(&self, index: usize, all_gifts: usize) {
+        // Assume that the checker can unwrap it without any problems, since it was checked before the `show` function was called
         let subscription_name = &self.subscription_plan.as_ref().unwrap().name;
 
         println!(
