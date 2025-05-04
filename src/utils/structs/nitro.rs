@@ -74,17 +74,17 @@ impl Nitro {
         };
 
         let start_date = match &self.start_time {
-            Some(time) => Utils::format_time(&time, None),
+            Some(time) => Utils::format_time(time, None),
             _ => "no start time provided".to_owned(),
         };
 
         let end_date = match &self.end_time {
-            Some(time) => Utils::format_time(&time, None),
+            Some(time) => Utils::format_time(time, None),
             _ => "no end time provided".to_owned(),
         };
 
         let cancel_date = match &self.canceled_at {
-            Some(time) => Utils::format_time(&time, None),
+            Some(time) => Utils::format_time(time, None),
             _ => "no cancellation time provided".to_owned(),
         };
 
@@ -123,7 +123,7 @@ impl Boost {
     pub fn show(&self, index: usize, all_boosts: usize) {
         let end_date = Utils::format_time(&self.ends, None);
         let canceled = if self.canceled { "Yes" } else { "No" };
-        let is_used = if !self.premium_guild_subscription.is_none() {
+        let is_used = if self.premium_guild_subscription.is_some() {
             "Yes"
         } else {
             "No"

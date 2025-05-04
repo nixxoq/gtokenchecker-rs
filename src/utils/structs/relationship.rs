@@ -19,7 +19,6 @@ pub struct Relationship {
     pub user: PublicUser,
     #[serde(rename = "since")]
     pub friendship_since: String,
-    // pub friendship_since: Option<String>,
     #[serde(rename = "type")]
     pub friend_type: i32,
 }
@@ -42,9 +41,10 @@ impl Relationship {
         let friends_since = Utils::format_time(&self.friendship_since, None);
         let flags = Utils::get_user_flags(self.user.public_flags);
 
-        let flags = match flags.is_empty() {
-            true => "No public flags available".to_string(),
-            false => flags.join(","),
+        let flags = if flags.is_empty() {
+            "No public flags available".to_string()
+        } else {
+            flags.join(",")
         };
 
         println!(
@@ -56,7 +56,7 @@ Nickname: {}
 Name#tag: {}#{}
 Friend type: {}
 Flags: {}
-Friends since: {}
+Friends since: {}false => 
 ",
             index + 1,
             all_friends,
