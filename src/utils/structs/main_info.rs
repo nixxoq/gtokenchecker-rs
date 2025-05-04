@@ -12,7 +12,6 @@ pub struct TokenInfo {
     pub banner_color: String,
     pub email: String,
     pub locale: String,
-    // pub pronouns: Option<String>,
     pub phone: Option<String>,
     pub mfa_enabled: bool,
     pub bio: Option<String>,
@@ -47,7 +46,6 @@ E-mail: {}
 Phone: {}
 MFA: {}
 Bio: {}",
-            // pronouns: {}
             token,
             self.id,
             self.username,
@@ -59,8 +57,6 @@ Bio: {}",
             self.phone.unwrap_or(String::from("No phone provided")),
             self.mfa_enabled,
             self.bio.unwrap_or(String::from("No bio provided")),
-            // self.pronouns
-            //     .unwrap_or(String::from("No pronouns available"))
         )
     }
 }

@@ -40,12 +40,12 @@ impl Utils {
     /// # Arguments
     ///
     /// * `input`: A string slice (`&str`) which is either a path to a text file
-    ///            containing tokens (one per line) or a single token string.
+    ///   containing tokens (one per line) or a single token string.
     ///
     /// # Returns
     ///
     /// * `Ok(Vec<String>)`: A vector containing the extracted token strings if successful.
-    ///                      If the input was not a file, this vector will contain exactly one element.
+    ///   If the input was not a file, this vector will contain exactly one element.
     /// * `Err(String)`: An error message string if:
     ///     - The input is a file path, but the file cannot be read (e.g., permissions, not found).
     ///     - The input is a file path, but the file is empty or contains only whitespace lines.
@@ -185,7 +185,7 @@ impl Utils {
     /// * `dict`: A reference to the HashMap containing `String` keys and `StrOrInt` values.
     /// * `key`: The string slice representing the key to look up.
     /// * `default_value`: An optional string slice to return if the key is not found
-    ///                    or the value is not a `StrV`. Defaults to `""` if `None`.
+    ///   or the value is not a `StrV`. Defaults to `""` if `None`.
     ///
     /// # Returns
     ///
