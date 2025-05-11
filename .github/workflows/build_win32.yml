@@ -256,3 +256,5 @@ jobs:
           files: |
             all-release-assets/release-asset-*/*
           fail_on_unmatched_files: true
+          draft: false
+          prerelease: false
