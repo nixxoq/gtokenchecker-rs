@@ -12,6 +12,7 @@ use tokio::{
 pub mod api;
 mod checker;
 pub mod utils;
+
 type CheckTaskOutput = (usize, String, Result<TokenResult, ApiError>);
 
 #[derive(Parser, Debug)]
@@ -60,9 +61,7 @@ async fn main() {
 
     let mut tasks: Vec<JoinHandle<CheckTaskOutput>> = Vec::new();
 
-    for (index, token) in tokens_to_check.into_iter().enumerate() {
-        let current_index = index;
-
+    tokens_to_check.into_iter().enumerate().for_each(|(index, token)| {
         let task: JoinHandle<CheckTaskOutput> = tokio::spawn(async move {
             let mut final_result: Result<TokenResult, ApiError> = Err(ApiError::IoError(
                 std::io::Error::new(std::io::ErrorKind::Other, "Initial loop error"),
@@ -78,29 +77,29 @@ async fn main() {
                         break;
                     }
                     Err(ref _reqw_err @ ApiError::RequestError(ref req_err))
-                        if req_err.is_timeout() || req_err.is_connect() || req_err.is_request() =>
-                    {
-                        if attempt < args.check_retries - 1 {
-                            eprintln!(
-                                " -> [Token #{}/{}] Network error. Retrying in {:?}... ({}/{})",
-                                current_index + 1,
-                                total_tokens,
-                                args.network_retry_delay,
-                                attempt + 1,
-                                args.check_retries
-                            );
-                            sleep(args.network_retry_delay).await;
-                        } else {
-                            final_result = result;
-                            break;
+                    if req_err.is_timeout() || req_err.is_connect() || req_err.is_request() =>
+                        {
+                            if attempt < args.check_retries - 1 {
+                                eprintln!(
+                                    " -> [Token #{}/{}] Network error. Retrying in {:?}... ({}/{})",
+                                    index + 1,
+                                    total_tokens,
+                                    args.network_retry_delay,
+                                    attempt + 1,
+                                    args.check_retries
+                                );
+                                sleep(args.network_retry_delay).await;
+                            } else {
+                                final_result = result;
+                                break;
+                            }
                         }
-                    }
 
                     Err(ref _rate @ ApiError::RateLimited(_)) => {
                         if attempt < args.check_retries - 1 {
                             eprintln!(
                                 " -> [Token #{}/{}] Rate Limited (429). Retrying in {:?}... ({}/{})",
-                                current_index + 1,
+                                index + 1,
                                 total_tokens,
                                 args.ratelimit_retry_delay,
                                 attempt + 1,
@@ -122,7 +121,7 @@ async fn main() {
             (index, token, final_result)
         });
         tasks.push(task);
-    }
+    });
 
     let mut task_outputs: Vec<Result<CheckTaskOutput, JoinError>> =
         Vec::with_capacity(total_tokens);

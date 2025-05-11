@@ -3,7 +3,7 @@ pub const USER_FLAGS: &[(i128, &str)] = &[
     (1 << 0, "Staff"),
     (1 << 1, "Guild Partner"),
     (1 << 2, "HypeSquad Events Member"),
-    (1 << 3, "Bug Huner Level 1"),
+    (1 << 3, "Bug Hunter Level 1"),
     (1 << 4, "SMS 2FA Enabled"),
     (1 << 5, "Dismissed Nitro promotion"),
     (1 << 6, "House Bravery Member"),

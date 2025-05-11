@@ -4,9 +4,9 @@ use tokio::join;
 use crate::{
     api::API,
     utils::{
-        Utils,
         enums::ApiError,
-        structs::{TokenResult, token_info::TokenInfo},
+        structs::{token_info::TokenInfo, TokenResult},
+        Utils,
     },
 };
 
@@ -55,6 +55,10 @@ impl Checker {
     /// - `GET /users/@me/guilds/premium/subscription-slots`
     /// - `GET /users/@me/guilds/premium/subscriptions`
     /// - `GET /users/@me/relationships`
+    /// - `GET /users/@me/guilds`
+    /// - `GET /users/@me/billing/subscriptions`
+    /// - `GET /users/@me/applications/521842831262875670/entitlements?exclude_consumed=true` (available nitro credits)
+    /// - `GET /users/@me/entitlements/gifts`
     ///
     /// If any of the API calls return a rate limit error, this function will return a `TokenResult`
     /// with `rate_limited` set to `true`. If any of the API calls fail with an error that is not
@@ -79,153 +83,73 @@ impl Checker {
     ) -> Result<TokenResult, ApiError> {
         let mut rate_limited = false;
 
-        let (
-            connections_result,
-            promotions_result,
-            boosts_result,
-            relationships_result,
-            guilds_result,
-            nitro_result,
-            nitro_credits_result,
-            gifts_result,
-        ) = join!(
+        let results = join!(
             api.get_connections(),
             api.get_promotions(Some(&token_info.locale)),
-            api.check_boosts(),
             api.get_relationships(),
             api.get_guilds(),
+            api.check_boosts(),
             api.get_nitro_info(),
             api.check_nitro_credit(),
             api.get_gifts()
         );
 
-        let connections = match connections_result {
-            Ok(data) => data,
-            Err(ApiError::RateLimited(_)) => {
-                rate_limited = true;
-                Vec::new()
-            }
-            Err(e) => {
-                eprintln!(
-                    " Warn (token: {}): Failed to get connections: {}",
-                    Utils::mask_last_part(&self.token),
-                    e
-                );
-                Vec::new()
-            }
-        };
-
-        let promotions = match promotions_result {
-            Ok(data) => data,
-            Err(ApiError::RateLimited(_)) => {
-                rate_limited = true;
-                Vec::new()
-            }
-            Err(e) => {
-                eprintln!(
-                    " Warn (token: {}): Failed to get promotions: {}",
-                    Utils::mask_last_part(&self.token),
-                    e
-                );
-                Vec::new()
-            }
-        };
-
-        let relationships = match relationships_result {
-            Ok(data) => data,
-            Err(ApiError::RateLimited(_)) => {
-                rate_limited = true;
-                Vec::new()
-            }
-            Err(e) => {
-                eprintln!(
-                    " Warn (token: {}): Failed to get relationships: {}",
-                    Utils::mask_last_part(&self.token),
-                    e
-                );
-                Vec::new()
-            }
-        };
-
-        let guilds = match guilds_result {
-            Ok(data) => data,
-            Err(ApiError::RateLimited(_)) => {
-                rate_limited = true;
-                Vec::new()
-            }
-            Err(e) => {
-                eprintln!(
-                    " Warn (token: {}): Failed to get relationships: {}",
-                    Utils::mask_last_part(&self.token),
-                    e
-                );
-                Vec::new()
-            }
-        };
-
-        let boosts = match boosts_result {
-            Ok(data) => data,
-            Err(ApiError::RateLimited(_)) => {
-                rate_limited = true;
-                Vec::new()
-            }
-            Err(e) => {
-                eprintln!(
-                    " Warn (token: {}...): Failed to check boosts: {}",
-                    &self.token[..5],
-                    e
-                );
-                Vec::new()
-            }
-        };
-
-        let nitro = match nitro_result {
-            Ok(data) => data,
-            Err(ApiError::RateLimited(_)) => {
-                rate_limited = true;
-                Vec::new()
-            }
-            Err(e) => {
-                eprintln!(
-                    " Warn (token: {}...): Failed to check nitro info: {}",
-                    &self.token[..5],
-                    e
-                );
-                Vec::new()
-            }
-        };
-
-        let nitro_credits = match nitro_credits_result {
-            Ok(data) => data,
-            Err(ApiError::RateLimited(_)) => {
-                rate_limited = true;
-                (0, 0)
-            }
-            Err(e) => {
-                eprintln!(
-                    " Warn (token: {}...): Failed to check nitro info: {}",
-                    &self.token[..5],
-                    e
-                );
-                (0, 0)
-            }
-        };
-
-        let gifts = match gifts_result {
-            Ok(data) => data,
-            Err(ApiError::RateLimited(_)) => {
-                rate_limited = true;
-                Vec::new()
-            }
-            Err(e) => {
-                eprintln!(
-                    " Warn (token: {}...): Failed to check nitro info: {}",
-                    &self.token[..5],
-                    e
-                );
-                Vec::new()
-            }
-        };
+        let connections = Utils::process_result(
+            results.0,
+            &self.token,
+            "get connections",
+            &mut rate_limited,
+            Vec::new(),
+        );
+        let promotions = Utils::process_result(
+            results.1,
+            &self.token,
+            "get promotions",
+            &mut rate_limited,
+            Vec::new(),
+        );
+        let relationships = Utils::process_result(
+            results.2,
+            &self.token,
+            "get relationships",
+            &mut rate_limited,
+            Vec::new(),
+        );
+        let guilds = Utils::process_result(
+            results.3,
+            &self.token,
+            "get guilds",
+            &mut rate_limited,
+            Vec::new(),
+        );
+        let boosts = Utils::process_result(
+            results.4,
+            &self.token,
+            "check boosts",
+            &mut rate_limited,
+            Vec::new(),
+        );
+        let nitro = Utils::process_result(
+            results.5,
+            &self.token,
+            "check nitro info",
+            &mut rate_limited,
+            Vec::new(),
+        );
+        let nitro_credits = Utils::process_result(
+            results.6,
+            &self.token,
+            "check nitro credits",
+            &mut rate_limited,
+            (0, 0),
+        );
+        let gifts = Utils::process_result(
+            results.7,
+            &self.token,
+            "get gifts",
+            &mut rate_limited,
+            Vec::new(),
+        );
 
         Ok(TokenResult {
             main_info: token_info,

@@ -1,5 +1,6 @@
 use std::{collections::HashMap, fs, path::Path, time::Duration};
 
+use crate::utils::enums::ApiError;
 use chrono::{DateTime, Utc};
 use constants::{DISCORD_CDN_BASE, USER_FLAGS, USER_PERMISSIONS};
 use enums::{BannerType, CdnType, ImageType, StrOrInt};
@@ -291,6 +292,50 @@ impl Utils {
                 }
             })
             .collect()
+    }
+
+    /// This helper function simplifies handling `Result<T, ApiError>` by logging
+    /// errors (except for `ApiError::RateLimited`) and managing a rate-limiting flag.
+    ///
+    /// # Arguments
+    ///
+    /// * `result`: The `Result` to process. It contains either a successful value of type `T`
+    ///   or an error of type [`ApiError`].
+    /// * `token`: A token associated with the operation.
+    /// * `description`: A description of the operation that led to this `result`.
+    ///   Used in error messages for context (e.g., "fetching user data").
+    /// * `rate_limited_flag`: A mutable boolean flag. It will be set to `true` if the `result`
+    ///   contains an [`ApiError::RateLimited`] error. Otherwise, its value remains unchanged.
+    /// * `default_value`: The value of type `T` to be returned if the `result`
+    ///   contains any error ([`Err`]).
+    ///
+    /// # Returns
+    ///
+    /// Returns the `T` value from the `Ok(T)` variant of `result` if the operation is successful.
+    /// In case of any error ([`Err(ApiError)`]), it returns `default_value`.
+    pub fn process_result<T>(
+        result: Result<T, ApiError>,
+        token: &str,
+        description: &str,
+        rate_limited_flag: &mut bool,
+        default_value: T,
+    ) -> T {
+        match result {
+            Ok(data) => data,
+            Err(ApiError::RateLimited(_)) => {
+                *rate_limited_flag = true;
+                default_value
+            }
+            Err(e) => {
+                eprintln!(
+                    " Warn (token: {}): Failed to {}: {}",
+                    Utils::mask_last_part(token),
+                    description,
+                    e
+                );
+                default_value
+            }
+        }
     }
 }
 
