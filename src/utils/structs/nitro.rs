@@ -95,7 +95,7 @@ Nitro info #{} of {}
 Id: {}
 Start time: {}
 End time: {}
-Cancelation time: {}
+Cancellation time: {}
 Nitro type: {}
 ",
             index + 1,
@@ -116,12 +116,12 @@ pub struct Boost {
     pub premium_guild_subscription: Option<PremiumGuildSubscription>,
     pub canceled: bool,
     #[serde(rename = "cooldown_ends_at")]
-    pub ends: String,
+    pub cooldown_ends: String,
 }
 
 impl Boost {
     pub fn show(&self, index: usize, all_boosts: usize) {
-        let end_date = Utils::format_time(&self.ends, None);
+        let cooldown_end_date = Utils::format_time(&self.cooldown_ends, None);
         let canceled = if self.canceled { "Yes" } else { "No" };
         let is_used = if self.premium_guild_subscription.is_some() {
             "Yes"
@@ -144,7 +144,7 @@ Is used: {}
 Subscription ID: {}
 Guild ID: {}
 Canceled: {}
-Ends: {}
+Cooldown ends at: {}
 ",
             index + 1,
             all_boosts,
@@ -152,7 +152,7 @@ Ends: {}
             self.subscription_id,
             guild_id,
             canceled,
-            end_date,
+            cooldown_end_date,
         )
     }
 }
