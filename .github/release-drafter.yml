@@ -22,9 +22,9 @@ categories:
   - title: '📚 Documentation'
     labels:
       - 'documentation'
-change-template: '- "$TITLE" @$AUTHOR (#$NUMBER)'
+change-template: '- [#$NUMBER] "$TITLE" by @$AUTHOR'
 template: |
-  ## Changes
+  ## PR Changes
 
   $CHANGES
 
