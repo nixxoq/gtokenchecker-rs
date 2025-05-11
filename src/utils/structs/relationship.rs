@@ -27,8 +27,7 @@ impl Relationship {
     pub fn show(&self, index: usize, all_friends: usize) {
         let friend_type = FRIEND_TYPE
             .iter()
-            .find(|&&(key, _value)| key == self.friend_type)
-            .map(|&(_k, v)| v)
+            .find_map(|(key, value)| (*key == self.friend_type).then_some(*value))
             .unwrap_or("Unknown type");
 
         let avatar = self
@@ -56,7 +55,7 @@ Nickname: {}
 Name#tag: {}#{}
 Friend type: {}
 Flags: {}
-Friends since: {}false => 
+Friends since: {}
 ",
             index + 1,
             all_friends,

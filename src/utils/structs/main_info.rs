@@ -17,7 +17,7 @@ pub struct TokenInfo {
     pub bio: Option<String>,
     pub public_flags: i128,
 
-    // Skip these fields because discord api cannot return them and we will add these fields later during initialization process.
+    // Skip these fields because discord api cannot return them, and we will add these fields later during initialization process.
     #[serde(skip)]
     pub fullname: String,
     #[serde(skip)]
