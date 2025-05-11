@@ -12,7 +12,7 @@ env:
 
 jobs:
   build:
-    name: Build
+    name: Build (Debug/Release based on ref)
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -49,8 +49,8 @@ jobs:
       - name: Install MinGW-w64 toolchain
         if: matrix.build_os == 'windows'
         run: |
-            sudo apt-get update
-            sudo apt-get install -y --no-install-recommends mingw-w64
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends mingw-w64
 
       - name: Determine build type
         id: build_type
@@ -78,72 +78,74 @@ jobs:
         shell: bash
         run: |
           BUILD_MODE="${{ steps.build_type.outputs.build_mode }}"
+          TARGET_DIR="target/${{ matrix.target }}/${BUILD_MODE}"
+          SOURCE_EXE="${TARGET_DIR}/${{ env.BINARY_NAME }}.exe"
+          SOURCE_BIN="${TARGET_DIR}/${{ env.BINARY_NAME }}"
+          
           if [[ "${{ matrix.build_os }}" == "windows" ]]; then
-            cp target/${{ matrix.target }}/${BUILD_MODE}/${{ env.BINARY_NAME }}.exe artifacts/${{ env.BINARY_NAME }}-${{ matrix.target }}.exe
+            cp "${SOURCE_EXE}" "artifacts/${{ env.BINARY_NAME }}-${{ matrix.target }}.exe"
           else
-            cp target/${{ matrix.target }}/${BUILD_MODE}/${{ env.BINARY_NAME }} artifacts/${{ env.BINARY_NAME }}-${{ matrix.target }}
+            cp "${SOURCE_BIN}" "artifacts/${{ env.BINARY_NAME }}-${{ matrix.target }}"
           fi
 
-      - name: Upload artifacts (${{ steps.build_type.outputs.build_mode }})
+      - name: Upload Build Artifacts (${{ steps.build_type.outputs.build_mode }})
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.BINARY_NAME }}-${{ matrix.build_os }}-${{ matrix.arch }}-${{ steps.build_type.outputs.build_mode }}
-          path: artifacts
-          if-no-files-found: ignore
+          path: artifacts/* # Загружаем содержимое папки artifacts
+          if-no-files-found: error # Лучше ошибка, если файлов нет
 
   check_version:
     name: Check Version
     runs-on: ubuntu-latest
     outputs:
-      should_release: ${{ steps.check_version.outputs.should_release }}
+      should_release: ${{ steps.check_version_logic.outputs.should_release }}
       current_version: ${{ steps.get_version.outputs.current_version }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Get current version from Cargo.toml
         id: get_version
         run: |
           VERSION=$(grep '^version = ' Cargo.toml | sed -E 's/^version = "(.*)"/\1/')
           echo "current_version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Current Cargo.toml version: $VERSION"
 
       - name: Get latest release tag
         id: get_latest_tag
         run: |
-          git fetch --tags
           LATEST_TAG=$(git tag --sort=-v:refname | head -n 1)
           echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+          echo "Latest Git tag: $LATEST_TAG"
 
       - name: Check if version has changed
-        id: check_version
+        id: check_version_logic
         run: |
-          CURRENT_VERSION=$(grep '^version = ' Cargo.toml | sed -E 's/^version = "(.*)"/\1/')
-          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-
-          LATEST_TAG=$(git tag --sort=-v:refname | head -n 1)
-          echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
-
+          CURRENT_VERSION="${{ steps.get_version.outputs.current_version }}"
+          LATEST_TAG="${{ steps.get_latest_tag.outputs.latest_tag }}"
           SHOULD_RELEASE="false"
 
           if [[ -n "$LATEST_TAG" ]]; then
-            LATEST_VERSION="${LATEST_TAG#v}"
-            if [[ "$CURRENT_VERSION" != "$LATEST_VERSION" ]]; then
+            LATEST_VERSION_FROM_TAG="${LATEST_TAG#v}" # Удаляем 'v' если есть
+            if [[ "$CURRENT_VERSION" != "$LATEST_VERSION_FROM_TAG" ]]; then
               SHOULD_RELEASE="true"
+              echo "Version changed: $LATEST_VERSION_FROM_TAG -> $CURRENT_VERSION. Should release."
+            else
+              echo "Version $CURRENT_VERSION is the same as latest tag $LATEST_TAG. No release needed."
             fi
           else
-            SHOULD_RELEASE="true"
+            SHOULD_RELEASE="true" # Нет тегов, значит это первый релиз
+            echo "No previous tags found. Should release version $CURRENT_VERSION."
           fi
           echo "should_release=$SHOULD_RELEASE" >> $GITHUB_OUTPUT
-          echo "version_changed=$SHOULD_RELEASE" >> $GITHUB_OUTPUT
 
-  release:
-    name: Release
-    needs: [build, check_version]
+  build_release:
+    name: Build Release Binaries
+    needs: [ check_version ]
     if: needs.check_version.outputs.should_release == 'true' && github.ref_name == 'main'
-    permissions:
-        contents: write
-        pull-requests: write
-
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -179,47 +181,78 @@ jobs:
       - name: Install MinGW-w64 toolchain
         if: matrix.build_os == 'windows'
         run: |
-            sudo apt-get update
-            sudo apt-get install -y --no-install-recommends mingw-w64
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends mingw-w64
 
       - name: Build Release Binaries (${{ matrix.build_os }} - ${{ matrix.arch }})
         run: cargo build --release --target ${{ matrix.target }}
 
-      - name: Create artifacts directory
+      - name: Create release package directory
         shell: bash
         run: mkdir -p release-package
 
       - name: Copy release binary to package (${{ matrix.build_os }} - ${{ matrix.arch }})
         shell: bash
         run: |
-          BUILD_MODE="release"
+          TARGET_DIR="target/${{ matrix.target }}/release"
+          DEST_DIR="release-package" # Всегда одна и та же папка назначения для артефакта
+          SOURCE_EXE="${TARGET_DIR}/${{ env.BINARY_NAME }}.exe"
+          SOURCE_BIN="${TARGET_DIR}/${{ env.BINARY_NAME }}"
+
           if [[ "${{ matrix.build_os }}" == "windows" ]]; then
-            cp target/${{ matrix.target }}/${BUILD_MODE}/${{ env.BINARY_NAME }}.exe release-package/${{ env.BINARY_NAME }}-${{ matrix.target }}.exe
+            cp "${SOURCE_EXE}" "${DEST_DIR}/${{ env.BINARY_NAME }}-${{ matrix.target }}.exe"
           else
-            cp target/${{ matrix.target }}/${BUILD_MODE}/${{ env.BINARY_NAME }} release-package/${{ env.BINARY_NAME }}-${{ matrix.target }}
+            cp "${SOURCE_BIN}" "${DEST_DIR}/${{ env.BINARY_NAME }}-${{ matrix.target }}"
           fi
 
-      - name: Upload Release Artifacts
+      - name: Upload Release Build Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.BINARY_NAME }}-${{ matrix.build_os }}-${{ matrix.arch }}-release
-          path: release-package
-          if-no-files-found: ignore
+          name: release-asset-${{ matrix.target }}
+          path: release-package/*
+          if-no-files-found: error
+
+  publish_release:
+    name: Publish GitHub Release
+    needs: [ check_version, build_release ]
+    if: needs.check_version.outputs.should_release == 'true' && github.ref_name == 'main'
+    permissions:
+      contents: write
+      pull-requests: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code (for release-drafter)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all release assets
+        uses: actions/download-artifact@v4
+        with:
+          path: all-release-assets
+
+      - name: List downloaded files (for debugging)
+        run: |
+          echo "Downloaded artifacts will be in subdirectories under all-release-assets/"
+          ls -R all-release-assets
 
       - name: Create Release Notes
         id: release_notes
-        uses: release-drafter/release-drafter@v5
+        uses: release-drafter/release-drafter@v6
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           name: Release v${{ needs.check_version.outputs.current_version }}
+          tag: v${{ needs.check_version.outputs.current_version }}
 
       - name: Upload Release Assets to GitHub Release
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_TAG: v${{ needs.check_version.outputs.current_version }}
         with:
+          tag_name: v${{ needs.check_version.outputs.current_version }}
           name: Release v${{ needs.check_version.outputs.current_version }}
           body: ${{ steps.release_notes.outputs.body }}
-          files: release-package/**/*
+          files: |
+            all-release-assets/release-asset-*/*
+          fail_on_unmatched_files: true
